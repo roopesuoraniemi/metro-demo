@@ -1,5 +1,5 @@
 APP := demoscene
-SRC := src/main.cpp
+SRC := src/main.cpp src/shapes.cpp
 BIN_DIR := build
 OUT := $(BIN_DIR)/$(APP)
 
@@ -20,7 +20,7 @@ setup:
 
 $(OUT): $(SRC)
 	mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(RAYLIB_FLAGS) $(PLATFORM_LIBS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(RAYLIB_FLAGS) $(PLATFORM_LIBS)
 
 run: $(OUT)
 	./$(OUT)

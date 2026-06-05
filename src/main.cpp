@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include "shapes.h"
 
 int main() {
     const int screenWidth = 1280;
@@ -26,6 +27,7 @@ int main() {
 
         BeginMode3D(camera);
         DrawSphere(dotPosition, dotRadius, RAYWHITE);
+        DrawFinnishMetro();
         DrawGrid(20, 1.0f);
         EndMode3D();
 
