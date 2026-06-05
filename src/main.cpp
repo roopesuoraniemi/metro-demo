@@ -6,6 +6,8 @@ int main() {
     const int screenHeight = 720;
 
     InitWindow(screenWidth, screenHeight, "raylib demoscene starter");
+    ToggleFullscreen();
+    DisableCursor();
 
     Camera3D camera = {0};
     camera.position = (Vector3){50.0f, 0.0f, -35.0f};
