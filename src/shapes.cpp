@@ -3,7 +3,7 @@
 #include "raymath.h"
 #include <vector>
 
-#define GAP 0.025
+#define GAP 0.075
 #define STEP_SIZE 0.08
 #define NUM_CARS 6
 

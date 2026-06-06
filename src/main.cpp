@@ -124,8 +124,7 @@ int main() {
                    (Vector2){0, 0}, WHITE);
     EndShaderMode();
 
-    DrawText("Raylib is working!!", 20, 20, 24, LIGHTGRAY);
-    DrawText("Wubbalubbadubdub", 20, 52, 18, GRAY);
+    DrawText("METRO", 400, 400, 150 + 50 * sinf(frame * 0.1), LIGHTGRAY);
 
     EndDrawing();
     frame++;
