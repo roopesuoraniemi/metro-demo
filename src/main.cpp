@@ -466,12 +466,15 @@ int main() {
       float dt = GetFrameTime();
       snake_timer += dt;
 
-      // Zoom in between 7 and 10 seconds
-      if (snake_timer > 7.0f && snake_timer <= 10.0f) {
-        float zoom_alpha = (snake_timer - 7.0f) / 3.0f;
+      // Zoom in between 0 and 3 seconds
+      if (snake_timer <= 3.0f) {
+        float zoom_alpha = snake_timer / 3.0f;
         // Smoothly interpolate chase parameters
         chase_back = 50.0f - (35.0f * zoom_alpha);   // down to 15
         chase_height = 70.0f - (60.0f * zoom_alpha); // down to 10
+      } else if (snake_timer > 3.0f && snake_timer <= 10.0f) {
+        chase_back = 15.0f;
+        chase_height = 10.0f;
       }
 
       if (snake_timer > 10.0f) {
