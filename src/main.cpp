@@ -1,12 +1,16 @@
 #include "raylib.h"
 #include "shapes.h"
+#include "raymath.h"
 
 int main() {
-    const int screenWidth = 1280;
-    const int screenHeight = 720;
 
-    InitWindow(screenWidth, screenHeight, "raylib demoscene starter");
-    ToggleFullscreen();
+    const float camera_speed = 0.01f;
+    const float turn_speed = 0.1f;
+
+    int frame = 0;
+
+    InitWindow(0, 0, "raylib demoscene starter");
+    SetConfigFlags(FLAG_FULLSCREEN_MODE);
     DisableCursor();
 
     Camera3D camera = {0};
@@ -19,7 +23,7 @@ int main() {
     const Vector3 dotPosition = {50.0f, 5.0f, 0.0f};
     const float dotRadius = 0.12f;
 
-    RenderTexture2D target = LoadRenderTexture(screenWidth, screenHeight);
+    RenderTexture2D target = LoadRenderTexture(GetRenderWidth(), GetRenderHeight());
     Shader bloomShader = LoadShader(0, "bloom.fs");
 
 
@@ -27,6 +31,19 @@ int main() {
 
     while (!WindowShouldClose()) {
         UpdateCamera(&camera, CAMERA_ORBITAL);
+        if (frame > 500) {
+            Vector3 door_location = GetMetroDoorLocation(1, false);
+            float distance = Vector3Distance(door_location, camera.position);
+            float target_distance = Vector3Distance(camera.target, door_location);
+            if (distance >= 0.5f) {
+                camera.position = Vector3Lerp(camera.position, door_location, camera_speed);
+            }
+            if (target_distance >= 1.0f) {
+                camera.target = Vector3Lerp(camera.target, door_location, turn_speed);
+            }
+
+
+        }
 
         BeginTextureMode(target);
           ClearBackground(BLACK);
@@ -34,7 +51,6 @@ int main() {
           BeginMode3D(camera);
               DrawSphere(dotPosition, dotRadius, RAYWHITE);
               DrawFinnishMetro();
-              DrawGrid(20, 1.0f);
           EndMode3D();
         EndTextureMode();
 
@@ -55,12 +71,11 @@ int main() {
             DrawText("Wubbalubbadubdub", 20, 52, 18, GRAY);
 
         EndDrawing();
+        frame++;
     }
 
     UnloadShader(bloomShader);
     UnloadRenderTexture(target);
-    CloseWindow();
-
     CloseWindow();
     return 0;
 }

@@ -86,3 +86,25 @@ void DrawFinnishMetro() {
         DrawMetroCarSurface(carPos, carLength, carHeight, carWidth, step, dotRadius);
     }
 }
+
+// Returns the center position of a door on the specified metro car.
+Vector3 GetMetroDoorLocation(int carIndex, bool side) {
+    Vector3 trainCenter = { 50.0f, 2.0f, -25.0f };
+    int numCars = 4;
+    float carLength = 10.0f;
+    float carWidth = 2.5f;
+    float gap = 0.5f;
+
+    if (carIndex < 0) carIndex = 0;
+    if (carIndex > numCars - 1) carIndex = numCars - 1;
+
+    float doorX = trainCenter.x + (carIndex - (numCars - 1) / 2.0f) * (carLength + gap);;
+
+    //Calculate Door Y
+    float doorY = trainCenter.y - 0.2f;
+
+    // Calculate Door Z
+    float doorZ = trainCenter.z + (side ? (carWidth / 2.0f) : -(carWidth / 2.0f));
+
+    return (Vector3){ doorX, doorY, doorZ };
+}
