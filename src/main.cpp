@@ -34,7 +34,6 @@ int main() {
   float fly_progress = 0.0f;
   float fly_speed = 0.0f;
   float return_t = 0.0f;
-  int frame = 0;
 
   InitWindow(0, 0, "raylib demoscene starter");
   SetConfigFlags(FLAG_FULLSCREEN_MODE);
@@ -189,8 +188,9 @@ int main() {
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
-    if (frame < 300) {UpdateCamera(&camera, CAMERA_ORBITAL);}
-    if (!zoom_done && frame > 300) {
+    float current_time = (float)GetTime();
+    if (current_time < 5.0f) {UpdateCamera(&camera, CAMERA_ORBITAL);}
+    if (!zoom_done && current_time >= 5.0f) {
       Vector3 door_location = GetMetroDoorLocation(&primary, 2, true);
       float distance = Vector3Distance(door_location, camera.position);
       float target_distance = Vector3Distance(camera.target, door_location);
@@ -210,7 +210,7 @@ int main() {
       }
     }
 
-    if (zoom_done && frame > 350) {
+    if (zoom_done && current_time >= 5.833f) {
       Vector3 center = GetMetroInsideLocation(&primary, 2);
       Vector3 target_location = GetMetroEndLocation(&primary);
       float distance = Vector3Distance(center, camera.position);
@@ -542,8 +542,8 @@ int main() {
     DrawTexturePro(target.texture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
     EndShaderMode();
 
-    if (frame < 300) {
-      int fontSize = (int)((150 + 50 * sinf(frame * 0.1f)) * scale);
+    if (current_time < 5.0f) {
+      int fontSize = (int)((150 + 50 * sinf(current_time * 6.0f)) * scale);
       DrawText("METRO", destRec.x + 400 * scale, destRec.y + 400 * scale, fontSize, LIGHTGRAY);
     }
 
@@ -554,7 +554,6 @@ int main() {
     }
 
     EndDrawing();
-    frame++;
   }
 
   UnloadMetroResources(); // Clean up shared model + shader
