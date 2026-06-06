@@ -50,8 +50,11 @@ int main() {
   const Vector3 dotPosition = {50.0f, 5.0f, 0.0f};
   const float dotRadius = 0.12f;
 
+  const int virtualWidth = 1920;
+  const int virtualHeight = 1080;
+
   RenderTexture2D target =
-      LoadRenderTexture(GetRenderWidth(), GetRenderHeight());
+      LoadRenderTexture(virtualWidth, virtualHeight);
   Shader bloomShader = LoadShader(0, "bloom.fs");
 
   InitMetro(metro_size);
@@ -118,13 +121,22 @@ int main() {
 
     BeginShaderMode(bloomShader);
 
-    DrawTextureRec(target.texture,
-                   (Rectangle){0, 0, (float)target.texture.width,
-                               (float)-target.texture.height},
-                   (Vector2){0, 0}, WHITE);
+    float scale = fmin((float)GetRenderWidth() / virtualWidth, (float)GetRenderHeight() / virtualHeight);
+    Rectangle sourceRec = {0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height};
+    Rectangle destRec = {
+        (GetRenderWidth() - ((float)virtualWidth * scale)) * 0.5f,
+        (GetRenderHeight() - ((float)virtualHeight * scale)) * 0.5f,
+        (float)virtualWidth * scale,
+        (float)virtualHeight * scale
+    };
+
+    DrawTexturePro(target.texture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
     EndShaderMode();
 
-    DrawText("METRO", 400, 400, 150 + 50 * sinf(frame * 0.1), LIGHTGRAY);
+    int fontSize = (int)((150 + 50 * sinf(frame * 0.1f)) * scale);
+    int textX = destRec.x + 400 * scale;
+    int textY = destRec.y + 400 * scale;
+    DrawText("METRO", textX, textY, fontSize, LIGHTGRAY);
 
     EndDrawing();
     frame++;
