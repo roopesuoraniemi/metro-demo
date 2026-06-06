@@ -68,8 +68,10 @@ int main() {
   };
 
 
+  const int virtualWidth = 1920;
+  const int virtualHeight = 1080;
   RenderTexture2D target =
-      LoadRenderTexture(GetRenderWidth(), GetRenderHeight());
+      LoadRenderTexture(virtualWidth, virtualHeight);
   Shader bloomShader = LoadShader(0, "bloom.fs");
 
   InitMetroResources();
@@ -463,14 +465,14 @@ int main() {
         next_city = (next_city + 1) % city_count;
         int fontSize = 48;
         float textW = (float)MeasureText(name, fontSize);
-        float sw = (float)GetRenderWidth();
+        float sw = (float)virtualWidth;
         fallingCities.push_back(
             {name, sw * 0.1f + (sw * 0.8f - textW) * ((float)GetRandomValue(0, 1000) / 1000.0f),
              -60.0f, fontSize});
       }
       for (size_t i = 0; i < fallingCities.size();) {
         fallingCities[i].y += fall_speed * dt;
-        if (fallingCities[i].y > (float)GetRenderHeight() + 80.0f) {
+        if (fallingCities[i].y > (float)virtualHeight + 80.0f) {
           fallingCities.erase(fallingCities.begin() + i);
         } else {
           i++;
@@ -486,8 +488,8 @@ int main() {
       camera.position = Vector3Lerp(camera.position, camGoal, follow_alpha);
       camera.target = cPos;
 
-      int sw = GetRenderWidth();
-      int sh = GetRenderHeight();
+      int sw = virtualWidth;
+      int sh = virtualHeight;
       Vector3 camFwd =
           Vector3Normalize(Vector3Subtract(camera.target, camera.position));
       for (size_t i = 0; i < metros.size();) {
@@ -528,17 +530,26 @@ int main() {
 
     BeginShaderMode(bloomShader);
 
-    DrawTextureRec(target.texture,
-                   (Rectangle){0, 0, (float)target.texture.width,
-                               (float)-target.texture.height},
-                   (Vector2){0, 0}, WHITE);
+    float scale = fmin((float)GetRenderWidth() / virtualWidth, (float)GetRenderHeight() / virtualHeight);
+    Rectangle sourceRec = {0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height};
+    Rectangle destRec = {
+        (GetRenderWidth() - ((float)virtualWidth * scale)) * 0.5f,
+        (GetRenderHeight() - ((float)virtualHeight * scale)) * 0.5f,
+        (float)virtualWidth * scale,
+        (float)virtualHeight * scale
+    };
+
+    DrawTexturePro(target.texture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
     EndShaderMode();
 
-    if (frame < 300) {DrawText("METRO", 400, 400, 150 + 50 * sinf(frame * 0.1), LIGHTGRAY);}
+    if (frame < 300) {
+      int fontSize = (int)((150 + 50 * sinf(frame * 0.1f)) * scale);
+      DrawText("METRO", destRec.x + 400 * scale, destRec.y + 400 * scale, fontSize, LIGHTGRAY);
+    }
 
     if (attached) {
       for (const FallingCity &c : fallingCities) {
-        DrawText(c.name, (int)c.x, (int)c.y, c.fontSize, LIGHTGRAY);
+        DrawText(c.name, destRec.x + c.x * scale, destRec.y + c.y * scale, (int)(c.fontSize * scale), LIGHTGRAY);
       }
     }
 

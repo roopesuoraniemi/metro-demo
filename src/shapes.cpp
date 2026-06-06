@@ -4,7 +4,7 @@
 #include <vector>
 
 #define GAP 0.075
-#define STEP_SIZE 0.1
+#define STEP_SIZE 0.2
 
 static Model dotModel;
 static Shader instancingShader;
@@ -139,7 +139,7 @@ static void BuildMetroGeometry(Metro *m) {
 }
 
 void InitMetroResources() {
-  float dotRadius = 0.025f;
+  float dotRadius = 0.05f;
 
   Mesh cubeMesh =
       GenMeshCube(dotRadius * 2.0f, dotRadius * 2.0f, dotRadius * 2.0f);
