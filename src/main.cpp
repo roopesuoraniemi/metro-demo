@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "shapes.h"
+#include <vector>
 
 int main() {
 
@@ -59,12 +60,25 @@ int main() {
 
   InitMetro(metro_size);
 
+  struct MetroState {
+    Vector3 position;
+    Vector3 velocity;
+    float disintegrate;
+  };
+
+  std::vector<MetroState> metros = {
+      {{0.0f, 0.0f, 0.0f}, {0.1f, 0.0f, 0.0f}, 0.0f},
+      {{0.0f, 0.0f, 50.0f}, {-0.15f, 0.0f, 0.0f}, 0.0f},
+      {{-100.0f, 0.0f, 100.0f}, {0.05f, 0.0f, 0.0f}, 0.0f}
+  };
+
+
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
     if (frame < 300) {UpdateCamera(&camera, CAMERA_ORBITAL);}
     if (!zoom_done && frame > 300) {
-      Vector3 door_location = GetMetroDoorLocation(2, true, metro_size);
+      Vector3 door_location = GetMetroDoorLocation(2, true, metro_size, metros[0].position);
       float distance = Vector3Distance(door_location, camera.position);
       float target_distance = Vector3Distance(camera.target, door_location);
       if (!zoom_path_started) {
@@ -84,8 +98,8 @@ int main() {
     }
 
     if (zoom_done && frame > 350) {
-      Vector3 center = GetMetroInsideLocation(2, metro_size);
-      Vector3 target_location = GetMetroEndLocation(metro_size);
+      Vector3 center = GetMetroInsideLocation(2, metro_size, metros[0].position);
+      Vector3 target_location = GetMetroEndLocation(metro_size, metros[0].position);
       float distance = Vector3Distance(center, camera.position);
       float target_distance = Vector3Distance(camera.target, target_location);
       if (!ride_path_started) {
@@ -112,7 +126,21 @@ int main() {
 
     BeginMode3D(camera);
     DrawSphere(dotPosition, dotRadius, RAYWHITE);
-    DrawFinnishMetro();
+    
+    for (auto& metro : metros) {
+      metro.position.x += metro.velocity.x;
+      metro.position.y += metro.velocity.y;
+      metro.position.z += metro.velocity.z;
+      
+      // Slowly disintegrate all metros after 300 frames
+      if (frame > 300) {
+        metro.disintegrate += GetFrameTime() * 0.15f;
+      }
+      
+      Matrix transform = MatrixTranslate(metro.position.x, metro.position.y, metro.position.z);
+      DrawFinnishMetro(transform, metro.disintegrate);
+    }
+    
     EndMode3D();
     EndTextureMode();
 
