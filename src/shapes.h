@@ -13,6 +13,7 @@ typedef struct Metro {
   // Snake undulation (0 amplitude = rigid body). waveK = 2*PI/wavelength,
   // waveOmega = slither speed, waveTime accumulates while waveAmp > 0.
   float waveAmp, waveK, waveOmega, waveTime;
+  float disintegrateAmount; // 0.0f = intact, > 0.0f = disintegrating
   std::vector<Matrix> orange, gray, lightGray, blue;
 } Metro;
 

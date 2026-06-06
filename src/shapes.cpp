@@ -14,6 +14,7 @@ static int gWaveAmpLoc = -1;
 static int gWaveKLoc = -1;
 static int gWaveOmegaLoc = -1;
 static int gWaveTimeLoc = -1;
+static int gDisintegrateLoc = -1;
 
 static Metro gStarMetroTemplate;
 static bool gStarTemplateReady = false;
@@ -160,6 +161,7 @@ void InitMetroResources() {
   gWaveKLoc = GetShaderLocation(instancingShader, "waveK");
   gWaveOmegaLoc = GetShaderLocation(instancingShader, "waveOmega");
   gWaveTimeLoc = GetShaderLocation(instancingShader, "waveTime");
+  gDisintegrateLoc = GetShaderLocation(instancingShader, "disintegrateAmount");
 
   dotModel.materials[0].shader = instancingShader;
 }
@@ -182,6 +184,7 @@ Metro CreateMetro(Vector3 center, int numCars, float size, Vector3 velocity) {
   m.waveK = 0.0f;
   m.waveOmega = 0.0f;
   m.waveTime = 0.0f;
+  m.disintegrateAmount = 0.0f;
   BuildMetroGeometry(&m);
   return m;
 }
@@ -199,6 +202,7 @@ Metro CloneMetro(const Metro &src, Vector3 center, Vector3 velocity) {
   m.waveK = 0.0f;
   m.waveOmega = 0.0f;
   m.waveTime = 0.0f;
+  m.disintegrateAmount = 0.0f;
   m.orange = src.orange;
   m.gray = src.gray;
   m.lightGray = src.lightGray;
@@ -256,6 +260,8 @@ void DrawMetro(const Metro *m) {
     SetShaderValue(instancingShader, gWaveOmegaLoc, &m->waveOmega, SHADER_UNIFORM_FLOAT);
   if (gWaveTimeLoc >= 0)
     SetShaderValue(instancingShader, gWaveTimeLoc, &m->waveTime, SHADER_UNIFORM_FLOAT);
+  if (gDisintegrateLoc >= 0)
+    SetShaderValue(instancingShader, gDisintegrateLoc, &m->disintegrateAmount, SHADER_UNIFORM_FLOAT);
 
   DrawInstanceGroup(m->orange, Color{255, 50, 0, 255});
   DrawInstanceGroup(m->gray, GRAY);

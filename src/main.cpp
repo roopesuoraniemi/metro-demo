@@ -131,10 +131,14 @@ int main() {
   float drive_heading = 0.0f;
   const int chosen_idx = 0;
   const float zoomin_duration = 4.0f;
-  const float drive_speed = 40.0f;
+  float drive_speed = 40.0f;
+  
+  float snake_timer = 0.0f;
+  bool disintegrating = false;
+  float disintegrate_t = 0.0f;
   const float drive_turn_rate = 0.0f;  // heads straight; the body squiggles
-  const float chase_back = 50.0f;      // camera distance behind the metro
-  const float chase_height = 70.0f;    // camera height above the metro
+  float chase_back = 50.0f;      // camera distance behind the metro
+  float chase_height = 70.0f;    // camera height above the metro
 
   // City names rain down during the snake phase; fall speed tracks waveOmega.
   const char *city_names[] = {
@@ -446,6 +450,31 @@ int main() {
     // are culled once they leave the screen.
     if (attached) {
       float dt = GetFrameTime();
+      snake_timer += dt;
+      
+      // Zoom in between 7 and 10 seconds
+      if (snake_timer > 7.0f && snake_timer <= 10.0f) {
+        float zoom_alpha = (snake_timer - 7.0f) / 3.0f;
+        // Smoothly interpolate chase parameters
+        chase_back = 50.0f - (35.0f * zoom_alpha); // down to 15
+        chase_height = 70.0f - (60.0f * zoom_alpha); // down to 10
+      }
+
+      if (snake_timer > 10.0f) {
+        disintegrating = true;
+      }
+      
+      if (disintegrating) {
+        disintegrate_t += dt / 3.0f;
+        if (disintegrate_t > 1.0f) break; // exit demoscene
+        
+        // Decelerate the train
+        drive_speed = 40.0f - (35.0f * disintegrate_t); // down to 5
+        
+        // Smoothly drop wave amplitude
+        chosenMetro.waveAmp = 8.0f * (1.0f - disintegrate_t);
+      }
+
       drive_heading += drive_turn_rate * dt;
       chosenMetro.yaw = drive_heading;
       Vector3 fwd =
@@ -455,6 +484,7 @@ int main() {
                                         Vector3Scale(fwd, drive_speed * dt));
       chosenMetro.waveOmega *= 1.001f; // squiggle accelerates over time
       chosenMetro.waveTime += dt;
+      chosenMetro.disintegrateAmount = disintegrate_t;
 
       // Spawn city labels at the top; fall speed matches squiggle phase speed.
       float fall_speed = chosenMetro.waveOmega * city_fall_factor;
