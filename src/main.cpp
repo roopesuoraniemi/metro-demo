@@ -3,6 +3,13 @@
 #include "shapes.h"
 #include <vector>
 
+struct FallingCity {
+  const char *name;
+  float x;
+  float y;
+  int fontSize;
+};
+
 int main() {
 
   const float camera_speed = 0.01f;
@@ -86,6 +93,9 @@ int main() {
   const int star_extra = 5;         // extra metros that fly in (primary stays)
   const float star_radius = 160.0f; // large enough to start off screen
   const float star_speed = 18.0f;
+  const float star_prewarm_at = 0.75f; // build star metros before fly-through ends
+  bool star_prewarmed = false;
+  std::vector<Metro> pendingStarMetros;
   const float spin_duration = 4.0f;   // time for the 360-degree spin
   const float spin_look_dist = 30.0f; // look target distance during the spin
   const float ride_out_speed = 55.0f; // original train rides out of frame
@@ -121,9 +131,58 @@ int main() {
   const int chosen_idx = 0;
   const float zoomin_duration = 4.0f;
   const float drive_speed = 40.0f;
-  const float drive_turn_rate = 0.25f; // rad/s -> curved trajectory
-  const float inside_back = 15.0f;     // camera sits this far behind mid-train
-  const float inside_look = 20.0f;     // and looks this far ahead down the car
+  const float drive_turn_rate = 0.0f;  // heads straight; the body squiggles
+  const float chase_back = 50.0f;      // camera distance behind the metro
+  const float chase_height = 70.0f;    // camera height above the metro
+
+  // City names rain down during the snake phase; fall speed tracks waveOmega.
+  const char *city_names[] = {
+    "Kivenlahti",
+    "Espoonlahti",
+    "Soukka",
+    "Kaitaa",
+    "Finnoo",
+    "Matinkylä",
+    "Niittykumpu",
+    "Urheilupuisto",
+    "Tapiola",
+    "Aalto-yliopisto",
+    "Keilaniemi",
+    "Koivusaari",
+    "Lauttasaari",
+    "Ruoholahti",
+    "Kamppi",
+    "Rautatientori",
+    "Helsingin yliopisto",
+    "Hakaniemi",
+    "Sörnäinen",
+    "Kalasatama",
+    "Kulosaari",
+    "Herttoniemi",
+    "Siilitie",
+    "Itäkeskus",
+    "Myllypuro",
+    "Kontula",
+    "Mellunmäki",
+    "Puotila",
+    "Rastila",
+    "Vuosaari",
+    "Rooma",
+    "Kairo",
+    "New Delhi",
+    "Tokio",
+    "Kapkaupunki",
+    "Buenos Aires",
+    "Sydney",
+    "Auckland",
+    "Dunedin"
+  };
+  const int city_count = (int)(sizeof(city_names) / sizeof(city_names[0]));
+  const float city_fall_factor = 55.0f; // pixels/sec per unit of waveOmega
+  const float city_spawn_interval = 1.1f;
+  std::vector<FallingCity> fallingCities;
+  int next_city = 0;
+  float city_spawn_timer = 0.0f;
 
   SetTargetFPS(60);
 
@@ -198,6 +257,25 @@ int main() {
       camera.target = Vector3Lerp(camera.target, ahead, turn_alpha);
     }
 
+    // Pre-build incoming star metros during late fly-through so spin start
+    // does not hitch on 5x geometry generation in a single frame.
+    if (fly_started && fly_progress >= star_prewarm_at && !star_prewarmed) {
+      star_prewarmed = true;
+      Vector3 star_center = primary.center;
+      InitStarMetroTemplate(star_center, 6, metro_size);
+      const Metro &tpl = GetStarMetroTemplate();
+      pendingStarMetros.reserve(star_extra);
+      for (int k = 0; k < star_extra; k++) {
+        Metro m = CloneMetro(tpl, star_center, (Vector3){0, 0, 0});
+        float a = (float)k * (2.0f * PI / (float)star_extra);
+        Vector3 dir = {cosf(a), 0.0f, sinf(a)};
+        m.position = Vector3Scale(dir, star_radius);
+        m.yaw = -a;
+        m.velocity = Vector3Scale(dir, -star_speed);
+        pendingStarMetros.push_back(m);
+      }
+    }
+
     // Fly-through complete: spin the camera a full 360 in place (before it
     // rises) while the original train rides out of frame and the incoming
     // trains appear. Keeping the original framed is no longer needed.
@@ -211,18 +289,8 @@ int main() {
         // Send the original train riding out along its length.
         primary.velocity = (Vector3){ride_out_speed, 0.0f, 0.0f};
 
-        // Spawn the incoming trains now so they appear during the spin,
-        // arranged symmetrically around the primary's center and aimed inward.
-        Vector3 star_center = primary.center;
-        for (int k = 0; k < star_extra; k++) {
-          Metro m = CreateMetro(star_center, 6, metro_size, (Vector3){0, 0, 0});
-          float a = (float)k * (2.0f * PI / (float)star_extra);
-          Vector3 dir = {cosf(a), 0.0f, sinf(a)};
-          m.position = Vector3Scale(dir, star_radius);
-          m.yaw = -a;
-          m.velocity = Vector3Scale(dir, -star_speed);
-          metros.push_back(m);
-        }
+        // Activate pre-built star metros (geometry was created during fly-through).
+        metros = std::move(pendingStarMetros);
         star_started = true;
       }
 
@@ -342,9 +410,10 @@ int main() {
         Metro &c = metros[chosen_idx];
         Vector3 cPos = Vector3Add(c.center, c.position);
         Vector3 fwd = (Vector3){cosf(c.yaw), 0.0f, -sinf(c.yaw)};
-        Vector3 eye = (Vector3){cPos.x, c.center.y - 0.2f, cPos.z};
-        follow_pose = Vector3Subtract(eye, Vector3Scale(fwd, inside_back));
-        follow_target = Vector3Add(eye, Vector3Scale(fwd, inside_look));
+        follow_pose = Vector3Add(
+            Vector3Subtract(cPos, Vector3Scale(fwd, chase_back)),
+            (Vector3){0.0f, chase_height, 0.0f});
+        follow_target = cPos;
       }
       zoomin_t += GetFrameTime() / zoomin_duration;
       if (zoomin_t > 1.0f) zoomin_t = 1.0f;
@@ -363,25 +432,59 @@ int main() {
         chosenMetro = metros[chosen_idx];
         metros.erase(metros.begin() + chosen_idx);
         drive_heading = chosenMetro.yaw;
+        // Turn the rigid body into a slithering snake.
+        chosenMetro.waveAmp = 8.0f;
+        chosenMetro.waveK = 2.0f * PI / 30.0f;
+        chosenMetro.waveOmega = 3.0f;
+        city_spawn_timer = city_spawn_interval; // first city appears immediately
       }
     }
 
-    // Drive the chosen metro away on a curved path while riding inside it.
-    // Remaining flower metros are culled once they leave the screen.
+    // Drive the chosen metro away while it squiggles. Remaining flower metros
+    // are culled once they leave the screen.
     if (attached) {
       float dt = GetFrameTime();
       drive_heading += drive_turn_rate * dt;
       chosenMetro.yaw = drive_heading;
       Vector3 fwd =
           (Vector3){cosf(chosenMetro.yaw), 0.0f, -sinf(chosenMetro.yaw)};
+      fwd = Vector3Scale(fwd, -1.0f);
       chosenMetro.position = Vector3Add(chosenMetro.position,
                                         Vector3Scale(fwd, drive_speed * dt));
+      chosenMetro.waveOmega *= 1.001f; // squiggle accelerates over time
+      chosenMetro.waveTime += dt;
 
-      // Ride inside the departing metro, looking forward down the car.
+      // Spawn city labels at the top; fall speed matches squiggle phase speed.
+      float fall_speed = chosenMetro.waveOmega * city_fall_factor;
+      city_spawn_timer += dt;
+      if (city_spawn_timer >= city_spawn_interval) {
+        city_spawn_timer = 0.0f;
+        const char *name = city_names[next_city];
+        next_city = (next_city + 1) % city_count;
+        int fontSize = 48;
+        float textW = (float)MeasureText(name, fontSize);
+        float sw = (float)GetRenderWidth();
+        fallingCities.push_back(
+            {name, sw * 0.1f + (sw * 0.8f - textW) * ((float)GetRandomValue(0, 1000) / 1000.0f),
+             -60.0f, fontSize});
+      }
+      for (size_t i = 0; i < fallingCities.size();) {
+        fallingCities[i].y += fall_speed * dt;
+        if (fallingCities[i].y > (float)GetRenderHeight() + 80.0f) {
+          fallingCities.erase(fallingCities.begin() + i);
+        } else {
+          i++;
+        }
+      }
+
+      // Follow the snake from a high behind-and-above chase angle.
       Vector3 cPos = Vector3Add(chosenMetro.center, chosenMetro.position);
-      Vector3 eye = (Vector3){cPos.x, chosenMetro.center.y - 0.2f, cPos.z};
-      camera.position = Vector3Subtract(eye, Vector3Scale(fwd, inside_back));
-      camera.target = Vector3Add(eye, Vector3Scale(fwd, inside_look));
+      Vector3 camGoal =
+          Vector3Add(Vector3Subtract(cPos, Vector3Scale(fwd, chase_back)),
+                     (Vector3){0.0f, chase_height, 0.0f});
+      float follow_alpha = 1.0f - expf(-3.0f * dt);
+      camera.position = Vector3Lerp(camera.position, camGoal, follow_alpha);
+      camera.target = cPos;
 
       int sw = GetRenderWidth();
       int sh = GetRenderHeight();
@@ -432,6 +535,12 @@ int main() {
     EndShaderMode();
 
     if (frame < 300) {DrawText("METRO", 400, 400, 150 + 50 * sinf(frame * 0.1), LIGHTGRAY);}
+
+    if (attached) {
+      for (const FallingCity &c : fallingCities) {
+        DrawText(c.name, (int)c.x, (int)c.y, c.fontSize, LIGHTGRAY);
+      }
+    }
 
     EndDrawing();
     frame++;

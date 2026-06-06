@@ -9,6 +9,14 @@
 static Model dotModel;
 static Shader instancingShader;
 static int gMetroTransformLoc = -1;
+static int gMetroCenterLoc = -1;
+static int gWaveAmpLoc = -1;
+static int gWaveKLoc = -1;
+static int gWaveOmegaLoc = -1;
+static int gWaveTimeLoc = -1;
+
+static Metro gStarMetroTemplate;
+static bool gStarTemplateReady = false;
 
 static float MetroPathZ(Vector3 center, float x, float size) {
   float curvature = 0.012f / size;
@@ -147,6 +155,11 @@ void InitMetroResources() {
       GetShaderLocation(instancingShader, "colDiffuse");
 
   gMetroTransformLoc = GetShaderLocation(instancingShader, "metroTransform");
+  gMetroCenterLoc = GetShaderLocation(instancingShader, "metroCenter");
+  gWaveAmpLoc = GetShaderLocation(instancingShader, "waveAmp");
+  gWaveKLoc = GetShaderLocation(instancingShader, "waveK");
+  gWaveOmegaLoc = GetShaderLocation(instancingShader, "waveOmega");
+  gWaveTimeLoc = GetShaderLocation(instancingShader, "waveTime");
 
   dotModel.materials[0].shader = instancingShader;
 }
@@ -165,14 +178,48 @@ Metro CreateMetro(Vector3 center, int numCars, float size, Vector3 velocity) {
   m.numCars = numCars;
   m.layoutCars = numCars;
   m.size = size;
+  m.waveAmp = 0.0f;
+  m.waveK = 0.0f;
+  m.waveOmega = 0.0f;
+  m.waveTime = 0.0f;
   BuildMetroGeometry(&m);
   return m;
 }
+
+Metro CloneMetro(const Metro &src, Vector3 center, Vector3 velocity) {
+  Metro m;
+  m.center = center;
+  m.position = (Vector3){0.0f, 0.0f, 0.0f};
+  m.velocity = velocity;
+  m.yaw = 0.0f;
+  m.numCars = src.numCars;
+  m.layoutCars = src.layoutCars;
+  m.size = src.size;
+  m.waveAmp = 0.0f;
+  m.waveK = 0.0f;
+  m.waveOmega = 0.0f;
+  m.waveTime = 0.0f;
+  m.orange = src.orange;
+  m.gray = src.gray;
+  m.lightGray = src.lightGray;
+  m.blue = src.blue;
+  return m;
+}
+
+void InitStarMetroTemplate(Vector3 center, int numCars, float size) {
+  if (!gStarTemplateReady) {
+    gStarMetroTemplate = CreateMetro(center, numCars, size, (Vector3){0, 0, 0});
+    gStarTemplateReady = true;
+  }
+}
+
+const Metro &GetStarMetroTemplate() { return gStarMetroTemplate; }
 
 void RebuildMetro(Metro *m) { BuildMetroGeometry(m); }
 
 void UpdateMetro(Metro *m, float dt) {
   m->position = Vector3Add(m->position, Vector3Scale(m->velocity, dt));
+  if (m->waveAmp > 0.0f) m->waveTime += dt;
 }
 
 static void DrawInstanceGroup(const std::vector<Matrix> &group, Color color) {
@@ -195,6 +242,20 @@ void DrawMetro(const Metro *m) {
   if (gMetroTransformLoc >= 0) {
     SetShaderValueMatrix(instancingShader, gMetroTransformLoc, t);
   }
+
+  // Snake undulation parameters (waveAmp 0 -> rigid body).
+  if (gMetroCenterLoc >= 0) {
+    float center[3] = {m->center.x, m->center.y, m->center.z};
+    SetShaderValue(instancingShader, gMetroCenterLoc, center, SHADER_UNIFORM_VEC3);
+  }
+  if (gWaveAmpLoc >= 0)
+    SetShaderValue(instancingShader, gWaveAmpLoc, &m->waveAmp, SHADER_UNIFORM_FLOAT);
+  if (gWaveKLoc >= 0)
+    SetShaderValue(instancingShader, gWaveKLoc, &m->waveK, SHADER_UNIFORM_FLOAT);
+  if (gWaveOmegaLoc >= 0)
+    SetShaderValue(instancingShader, gWaveOmegaLoc, &m->waveOmega, SHADER_UNIFORM_FLOAT);
+  if (gWaveTimeLoc >= 0)
+    SetShaderValue(instancingShader, gWaveTimeLoc, &m->waveTime, SHADER_UNIFORM_FLOAT);
 
   DrawInstanceGroup(m->orange, Color{255, 50, 0, 255});
   DrawInstanceGroup(m->gray, GRAY);
