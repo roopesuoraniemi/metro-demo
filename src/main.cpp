@@ -14,7 +14,7 @@ int main() {
   bool zoom_done = false;
   bool zoom_path_started = false  ;
   bool ride_path_started = false;
-  float zoom_t = 2.0f;
+  float zoom_t = 4.0f;
   float ride_t = 2.0f;
   int frame = 0;
 
@@ -59,8 +59,8 @@ int main() {
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
-    if (frame < 200) {UpdateCamera(&camera, CAMERA_ORBITAL);}
-    if (!zoom_done && frame > 200) {
+    if (frame < 300) {UpdateCamera(&camera, CAMERA_ORBITAL);}
+    if (!zoom_done && frame > 300) {
       Vector3 door_location = GetMetroDoorLocation(2, true, metro_size);
       float distance = Vector3Distance(door_location, camera.position);
       float target_distance = Vector3Distance(camera.target, door_location);
@@ -80,7 +80,7 @@ int main() {
       }
     }
 
-    if (zoom_done && frame > 250) {
+    if (zoom_done && frame > 350) {
       Vector3 center = GetMetroInsideLocation(2, metro_size);
       Vector3 target_location = GetMetroEndLocation(metro_size);
       float distance = Vector3Distance(center, camera.position);
@@ -102,7 +102,7 @@ int main() {
       }
     }
 
-    metro_size = 1.0f + 0.5f * sinf((frame - 350) * 0.05f) * sinf((frame - 350) * 0.05f);
+    // metro_size = 1.0f + 1.5f * sinf((frame - 350) * 0.05f) * sinf((frame - 350) * 0.05f);
 
     BeginTextureMode(target);
     ClearBackground(BLACK);
