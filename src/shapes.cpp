@@ -71,10 +71,10 @@ void DrawFinnishMetro() {
     float carLength = 10.0f;
     float carWidth = 2.5f;
     float carHeight = 2.5f;
-    float gap = 0.5f;
+    float gap = 0.25f;
     
-    float step = 0.4f;
-    float dotRadius = 0.08f;
+    float step = 0.2f;
+    float dotRadius = 0.04f;
 
     for (int i = 0; i < numCars; i++) {
         Vector3 carPos = { 

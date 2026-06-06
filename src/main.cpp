@@ -4,7 +4,7 @@
 
 int main() {
 
-    const float camera_speed = 0.01f;
+    const float camera_speed = 0.03f;
     const float turn_speed = 0.1f;
 
     int frame = 0;
@@ -30,9 +30,9 @@ int main() {
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
-        UpdateCamera(&camera, CAMERA_ORBITAL);
-        if (frame > 500) {
-            Vector3 door_location = GetMetroDoorLocation(1, false);
+        if (frame < 200) {UpdateCamera(&camera, CAMERA_ORBITAL);}
+        if (frame > 200) {
+            Vector3 door_location = GetMetroDoorLocation(2, false);
             float distance = Vector3Distance(door_location, camera.position);
             float target_distance = Vector3Distance(camera.target, door_location);
             if (distance >= 0.5f) {
