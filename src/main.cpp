@@ -24,7 +24,7 @@ int main() {
 
   float metro_size = 1.0f;
   bool zoom_done = false;
-  bool zoom_path_started = false  ;
+  bool zoom_path_started = false;
   bool ride_path_started = false;
   bool ride_done = false;
   bool fly_started = false;
@@ -54,7 +54,8 @@ int main() {
 
   auto EaseInOut = [](float t) { return t * t * (3.0f - 2.0f * t); };
 
-  auto FloorParallelArcPoint = [](Vector3 start, Vector3 end, float t, float arcWidth) {
+  auto FloorParallelArcPoint = [](Vector3 start, Vector3 end, float t,
+                                  float arcWidth) {
     Vector3 p = Vector3Lerp(start, end, t);
     Vector3 flatDir = {end.x - start.x, 0.0f, end.z - start.z};
     float flatLen = Vector3Length(flatDir);
@@ -66,19 +67,16 @@ int main() {
     return p;
   };
 
-
   const int virtualWidth = 1920;
   const int virtualHeight = 1080;
-  RenderTexture2D target =
-      LoadRenderTexture(virtualWidth, virtualHeight);
+  RenderTexture2D target = LoadRenderTexture(virtualWidth, virtualHeight);
   Shader bloomShader = LoadShader(0, "bloom.fs");
 
   InitMetroResources();
 
   // Stationary metro that drives the camera sequence.
-  Metro primary =
-      CreateMetro((Vector3){50.0f, 2.0f, -25.0f}, 6, metro_size,
-                  (Vector3){0.0f, 0.0f, 0.0f});
+  Metro primary = CreateMetro((Vector3){50.0f, 2.0f, -25.0f}, 6, metro_size,
+                              (Vector3){0.0f, 0.0f, 0.0f});
 
   // Additional metros are spawned only after the camera returns (see below),
   // so the intro shows the primary metro alone.
@@ -94,7 +92,8 @@ int main() {
   const int star_extra = 5;         // extra metros that fly in (primary stays)
   const float star_radius = 160.0f; // large enough to start off screen
   const float star_speed = 18.0f;
-  const float star_prewarm_at = 0.75f; // build star metros before fly-through ends
+  const float star_prewarm_at =
+      0.75f; // build star metros before fly-through ends
   bool star_prewarmed = false;
   std::vector<Metro> pendingStarMetros;
   const float spin_duration = 4.0f;   // time for the 360-degree spin
@@ -132,56 +131,54 @@ int main() {
   const int chosen_idx = 0;
   const float zoomin_duration = 4.0f;
   float drive_speed = 40.0f;
-  
+
   float snake_timer = 0.0f;
   bool disintegrating = false;
   float disintegrate_t = 0.0f;
-  const float drive_turn_rate = 0.0f;  // heads straight; the body squiggles
-  float chase_back = 50.0f;      // camera distance behind the metro
-  float chase_height = 70.0f;    // camera height above the metro
+  const float drive_turn_rate = 0.0f; // heads straight; the body squiggles
+  float chase_back = 50.0f;           // camera distance behind the metro
+  float chase_height = 70.0f;         // camera height above the metro
 
   // City names rain down during the snake phase; fall speed tracks waveOmega.
-  const char *city_names[] = {
-    "Kivenlahti",
-    "Espoonlahti",
-    "Soukka",
-    "Kaitaa",
-    "Finnoo",
-    "Matinkylä",
-    "Niittykumpu",
-    "Urheilupuisto",
-    "Tapiola",
-    "Aalto-yliopisto",
-    "Keilaniemi",
-    "Koivusaari",
-    "Lauttasaari",
-    "Ruoholahti",
-    "Kamppi",
-    "Rautatientori",
-    "Helsingin yliopisto",
-    "Hakaniemi",
-    "Sörnäinen",
-    "Kalasatama",
-    "Kulosaari",
-    "Herttoniemi",
-    "Siilitie",
-    "Itäkeskus",
-    "Myllypuro",
-    "Kontula",
-    "Mellunmäki",
-    "Puotila",
-    "Rastila",
-    "Vuosaari",
-    "Rooma",
-    "Kairo",
-    "New Delhi",
-    "Tokio",
-    "Kapkaupunki",
-    "Buenos Aires",
-    "Sydney",
-    "Auckland",
-    "Dunedin"
-  };
+  const char *city_names[] = {"Kivenlahti",
+                              "Espoonlahti",
+                              "Soukka",
+                              "Kaitaa",
+                              "Finnoo",
+                              "Matinkylä",
+                              "Niittykumpu",
+                              "Urheilupuisto",
+                              "Tapiola",
+                              "Aalto-yliopisto",
+                              "Keilaniemi",
+                              "Koivusaari",
+                              "Lauttasaari",
+                              "Ruoholahti",
+                              "Kamppi",
+                              "Rautatientori",
+                              "Helsingin yliopisto",
+                              "Hakaniemi",
+                              "Sörnäinen",
+                              "Kalasatama",
+                              "Kulosaari",
+                              "Herttoniemi",
+                              "Siilitie",
+                              "Itäkeskus",
+                              "Myllypuro",
+                              "Kontula",
+                              "Mellunmäki",
+                              "Puotila",
+                              "Rastila",
+                              "Vuosaari",
+                              "Rooma",
+                              "Kairo",
+                              "New Delhi",
+                              "Tokio",
+                              "Kapkaupunki",
+                              "Buenos Aires",
+                              "Sydney",
+                              "Auckland",
+                              "Dunedin"};
   const int city_count = (int)(sizeof(city_names) / sizeof(city_names[0]));
   const float city_fall_factor = 55.0f; // pixels/sec per unit of waveOmega
   const float city_spawn_interval = 1.1f;
@@ -193,7 +190,9 @@ int main() {
 
   while (!WindowShouldClose()) {
     float current_time = (float)GetTime();
-    if (current_time < 5.0f) {UpdateCamera(&camera, CAMERA_ORBITAL);}
+    if (current_time < 5.0f) {
+      UpdateCamera(&camera, CAMERA_ORBITAL);
+    }
     if (!zoom_done && current_time >= 5.0f) {
       Vector3 door_location = GetMetroDoorLocation(&primary, 2, true);
       float distance = Vector3Distance(door_location, camera.position);
@@ -205,9 +204,13 @@ int main() {
         zoom_t = 0.0f;
       }
       zoom_t += GetFrameTime() / zoom_duration;
-      if (zoom_t > 1.0f) zoom_t = 1.0f;
-      camera.position = FloorParallelArcPoint(zoom_start, zoom_end, EaseInOut(zoom_t), zoom_arc_height);
-      if (zoom_t >= 1.0f || distance < 0.08f) {zoom_done = true;}
+      if (zoom_t > 1.0f)
+        zoom_t = 1.0f;
+      camera.position = FloorParallelArcPoint(
+          zoom_start, zoom_end, EaseInOut(zoom_t), zoom_arc_height);
+      if (zoom_t >= 1.0f || distance < 0.08f) {
+        zoom_done = true;
+      }
       if (target_distance >= 0.01f) {
         float turn_alpha = 1.0f - expf(-turn_responsiveness * GetFrameTime());
         camera.target = Vector3Lerp(camera.target, door_location, turn_alpha);
@@ -227,7 +230,8 @@ int main() {
       }
       if (distance >= 0.3f && ride_t < 1.0f) {
         ride_t += GetFrameTime() / ride_duration;
-        if (ride_t > 1.0f) ride_t = 1.0f;
+        if (ride_t > 1.0f)
+          ride_t = 1.0f;
         camera.position = Vector3Lerp(ride_start, ride_end, EaseInOut(ride_t));
       }
       if (ride_t >= 1.0f || distance < 0.3f) {
@@ -239,7 +243,8 @@ int main() {
       }
     }
 
-    // Once stopped inside the metro, fly down its length at an increasing speed.
+    // Once stopped inside the metro, fly down its length at an increasing
+    // speed.
     if (ride_done && fly_progress < 1.0f) {
       if (!fly_started) {
         fly_started = true;
@@ -252,12 +257,14 @@ int main() {
       }
       fly_speed += fly_accel * GetFrameTime();
       fly_progress += fly_speed * GetFrameTime();
-      if (fly_progress > 1.0f) fly_progress = 1.0f;
+      if (fly_progress > 1.0f)
+        fly_progress = 1.0f;
 
       camera.position = GetMetroPathPoint(&primary, fly_progress);
 
       float look_ahead = fly_progress + 0.1f;
-      if (look_ahead > 1.0f) look_ahead = 1.0f;
+      if (look_ahead > 1.0f)
+        look_ahead = 1.0f;
       Vector3 ahead = GetMetroPathPoint(&primary, look_ahead);
       float turn_alpha = 1.0f - expf(-turn_responsiveness * GetFrameTime());
       camera.target = Vector3Lerp(camera.target, ahead, turn_alpha);
@@ -295,13 +302,15 @@ int main() {
         // Send the original train riding out along its length.
         primary.velocity = (Vector3){ride_out_speed, 0.0f, 0.0f};
 
-        // Activate pre-built star metros (geometry was created during fly-through).
+        // Activate pre-built star metros (geometry was created during
+        // fly-through).
         metros = std::move(pendingStarMetros);
         star_started = true;
       }
 
       spin_t += GetFrameTime() / spin_duration;
-      if (spin_t > 1.0f) spin_t = 1.0f;
+      if (spin_t > 1.0f)
+        spin_t = 1.0f;
       float ang = spin_start_angle + spin_t * (2.0f * PI);
       camera.position = spin_pivot;
       camera.target = (Vector3){spin_pivot.x + cosf(ang) * spin_look_dist,
@@ -319,12 +328,14 @@ int main() {
         return_t = 0.0f;
       }
       return_t += GetFrameTime() / return_duration;
-      if (return_t > 1.0f) return_t = 1.0f;
+      if (return_t > 1.0f)
+        return_t = 1.0f;
       float eased_return_t = EaseInOut(return_t);
-      Vector3 star_view_near = (Vector3){primary.center.x,
-                                         primary.center.y + 130.0f,
-                                         primary.center.z + 80.0f};
-      camera.position = Vector3Lerp(return_start, star_view_near, eased_return_t);
+      Vector3 star_view_near =
+          (Vector3){primary.center.x, primary.center.y + 130.0f,
+                    primary.center.z + 80.0f};
+      camera.position =
+          Vector3Lerp(return_start, star_view_near, eased_return_t);
       camera.target =
           Vector3Lerp(return_focus_start, primary.center, eased_return_t);
     }
@@ -360,9 +371,8 @@ int main() {
 
         // Top-down orthographic snapshot of the real flower (transparent bg).
         Camera3D snapCam = {0};
-        snapCam.position = (Vector3){primary.center.x,
-                                     primary.center.y + 100.0f,
-                                     primary.center.z};
+        snapCam.position = (Vector3){
+            primary.center.x, primary.center.y + 100.0f, primary.center.z};
         snapCam.target = primary.center;
         snapCam.up = (Vector3){0.0f, 0.0f, -1.0f};
         snapCam.fovy = flower_size; // orthographic height in world units
@@ -382,7 +392,8 @@ int main() {
         // Lay out a grid of cheap flowers around the real one (skip center).
         for (int gx = -flower_grid; gx <= flower_grid; gx++) {
           for (int gz = -flower_grid; gz <= flower_grid; gz++) {
-            if (gx == 0 && gz == 0) continue;
+            if (gx == 0 && gz == 0)
+              continue;
             flowerPositions.push_back((Vector3){
                 primary.center.x + gx * flower_spacing, primary.center.y,
                 primary.center.z + gz * flower_spacing});
@@ -394,11 +405,12 @@ int main() {
     // Zoom out to reveal the field of cheap flowers.
     if (flowers_spawned && bloom_zoom_t < 1.0f) {
       bloom_zoom_t += GetFrameTime() / bloom_zoom_duration;
-      if (bloom_zoom_t > 1.0f) bloom_zoom_t = 1.0f;
+      if (bloom_zoom_t > 1.0f)
+        bloom_zoom_t = 1.0f;
       float extent = (float)flower_grid * flower_spacing;
-      Vector3 far_view = (Vector3){primary.center.x,
-                                   primary.center.y + extent * 0.65f,
-                                   primary.center.z + extent * 0.4f};
+      Vector3 far_view =
+          (Vector3){primary.center.x, primary.center.y + extent * 0.65f,
+                    primary.center.z + extent * 0.4f};
       camera.position =
           Vector3Lerp(bloom_zoom_start, far_view, EaseInOut(bloom_zoom_t));
       camera.target = primary.center;
@@ -416,13 +428,14 @@ int main() {
         Metro &c = metros[chosen_idx];
         Vector3 cPos = Vector3Add(c.center, c.position);
         Vector3 fwd = (Vector3){cosf(c.yaw), 0.0f, -sinf(c.yaw)};
-        follow_pose = Vector3Add(
-            Vector3Subtract(cPos, Vector3Scale(fwd, chase_back)),
-            (Vector3){0.0f, chase_height, 0.0f});
+        follow_pose =
+            Vector3Add(Vector3Subtract(cPos, Vector3Scale(fwd, chase_back)),
+                       (Vector3){0.0f, chase_height, 0.0f});
         follow_target = cPos;
       }
       zoomin_t += GetFrameTime() / zoomin_duration;
-      if (zoomin_t > 1.0f) zoomin_t = 1.0f;
+      if (zoomin_t > 1.0f)
+        zoomin_t = 1.0f;
       float ez = EaseInOut(zoomin_t);
       camera.position = Vector3Lerp(zoomin_start, follow_pose, ez);
       camera.target = Vector3Lerp(zoomin_target_start, follow_target, ez);
@@ -442,7 +455,8 @@ int main() {
         chosenMetro.waveAmp = 8.0f;
         chosenMetro.waveK = 2.0f * PI / 30.0f;
         chosenMetro.waveOmega = 3.0f;
-        city_spawn_timer = city_spawn_interval; // first city appears immediately
+        city_spawn_timer =
+            city_spawn_interval; // first city appears immediately
       }
     }
 
@@ -451,28 +465,30 @@ int main() {
     if (attached) {
       float dt = GetFrameTime();
       snake_timer += dt;
-      
+
       // Zoom in between 7 and 10 seconds
       if (snake_timer > 7.0f && snake_timer <= 10.0f) {
         float zoom_alpha = (snake_timer - 7.0f) / 3.0f;
         // Smoothly interpolate chase parameters
-        chase_back = 50.0f - (35.0f * zoom_alpha); // down to 15
+        chase_back = 50.0f - (35.0f * zoom_alpha);   // down to 15
         chase_height = 70.0f - (60.0f * zoom_alpha); // down to 10
       }
 
       if (snake_timer > 10.0f) {
         disintegrating = true;
       }
-      
+
       if (disintegrating) {
         disintegrate_t += dt / 3.0f;
-        if (disintegrate_t > 1.0f) break; // exit demoscene
-        
+        if (disintegrate_t > 3.0f)
+          break; // exit demoscene after 6 seconds of extra particles
+
+        float t_clamp = fminf(disintegrate_t, 1.0f);
         // Decelerate the train
-        drive_speed = 40.0f - (35.0f * disintegrate_t); // down to 5
-        
+        drive_speed = 40.0f - (35.0f * t_clamp); // down to 5
+
         // Smoothly drop wave amplitude
-        chosenMetro.waveAmp = 8.0f * (1.0f - disintegrate_t);
+        chosenMetro.waveAmp = 8.0f * (1.0f - t_clamp);
       }
 
       drive_heading += drive_turn_rate * dt;
@@ -480,8 +496,8 @@ int main() {
       Vector3 fwd =
           (Vector3){cosf(chosenMetro.yaw), 0.0f, -sinf(chosenMetro.yaw)};
       fwd = Vector3Scale(fwd, -1.0f);
-      chosenMetro.position = Vector3Add(chosenMetro.position,
-                                        Vector3Scale(fwd, drive_speed * dt));
+      chosenMetro.position =
+          Vector3Add(chosenMetro.position, Vector3Scale(fwd, drive_speed * dt));
       chosenMetro.waveOmega *= 1.001f; // squiggle accelerates over time
       chosenMetro.waveTime += dt;
       chosenMetro.disintegrateAmount = disintegrate_t;
@@ -497,7 +513,9 @@ int main() {
         float textW = (float)MeasureText(name, fontSize);
         float sw = (float)virtualWidth;
         fallingCities.push_back(
-            {name, sw * 0.1f + (sw * 0.8f - textW) * ((float)GetRandomValue(0, 1000) / 1000.0f),
+            {name,
+             sw * 0.1f + (sw * 0.8f - textW) *
+                             ((float)GetRandomValue(0, 1000) / 1000.0f),
              -60.0f, fontSize});
       }
       for (size_t i = 0; i < fallingCities.size();) {
@@ -541,16 +559,20 @@ int main() {
     ClearBackground(BLACK);
 
     BeginMode3D(camera);
-    DrawMetro(&primary);
-    for (const Metro &m : metros) {
-      DrawMetro(&m);
+    if (disintegrate_t <= 1.0f) {
+      DrawMetro(&primary);
+      for (const Metro &m : metros) {
+        DrawMetro(&m);
+      }
     }
     if (attached) {
       DrawMetro(&chosenMetro);
     }
-    // Cheap textured-quad flowers: one draw call each.
-    for (const Vector3 &p : flowerPositions) {
-      DrawModel(flowerPlane, p, 1.0f, WHITE);
+    if (disintegrate_t <= 1.0f) {
+      // Cheap textured-quad flowers: one draw call each.
+      for (const Vector3 &p : flowerPositions) {
+        DrawModel(flowerPlane, p, 1.0f, WHITE);
+      }
     }
     EndMode3D();
     EndTextureMode();
@@ -560,33 +582,56 @@ int main() {
 
     BeginShaderMode(bloomShader);
 
-    float scale = fmin((float)GetRenderWidth() / virtualWidth, (float)GetRenderHeight() / virtualHeight);
-    Rectangle sourceRec = {0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height};
+    float scale = fmin((float)GetRenderWidth() / virtualWidth,
+                       (float)GetRenderHeight() / virtualHeight);
+    Rectangle sourceRec = {0.0f, 0.0f, (float)target.texture.width,
+                           (float)-target.texture.height};
     Rectangle destRec = {
         (GetRenderWidth() - ((float)virtualWidth * scale)) * 0.5f,
         (GetRenderHeight() - ((float)virtualHeight * scale)) * 0.5f,
-        (float)virtualWidth * scale,
-        (float)virtualHeight * scale
-    };
+        (float)virtualWidth * scale, (float)virtualHeight * scale};
 
-    DrawTexturePro(target.texture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
+    DrawTexturePro(target.texture, sourceRec, destRec, (Vector2){0, 0}, 0.0f,
+                   WHITE);
     EndShaderMode();
 
     if (current_time < 5.0f) {
       int fontSize = (int)((150 + 50 * sinf(current_time * 6.0f)) * scale);
-      DrawText("METRO", destRec.x + 400 * scale, destRec.y + 400 * scale, fontSize, LIGHTGRAY);
+      DrawText("METRO", destRec.x + 400 * scale, destRec.y + 400 * scale,
+               fontSize, LIGHTGRAY);
+
+      int fontSizeSmall = (int)((40 + 10 * sinf(current_time * 6.0f)) * scale);
+      DrawText("Graffathon 26", destRec.x + 400 * scale,
+               destRec.y + 550 * scale, fontSizeSmall, DARKGRAY);
     }
 
-    if (attached) {
+    if (attached && disintegrate_t <= 1.0f) {
       for (const FallingCity &c : fallingCities) {
-        DrawText(c.name, destRec.x + c.x * scale, destRec.y + c.y * scale, (int)(c.fontSize * scale), LIGHTGRAY);
+        DrawText(c.name, destRec.x + c.x * scale, destRec.y + c.y * scale,
+                 (int)(c.fontSize * scale), LIGHTGRAY);
       }
+    }
+
+    if (disintegrate_t > 1.0f) {
+      const char *credit1 = "metro metro metro";
+      const char *credit2 = "milkkis roosuli ropsukka";
+      const char *credit3 = "Thanks for watching!";
+      int fontSize = (int)(80 * scale);
+      int w1 = MeasureText(credit1, fontSize);
+      int w2 = MeasureText(credit2, fontSize);
+      int w3 = MeasureText(credit3, fontSize);
+      DrawText(credit1, destRec.x + (virtualWidth * scale - w1) * 0.5f,
+               destRec.y + 200 * scale, fontSize, LIGHTGRAY);
+      DrawText(credit2, destRec.x + (virtualWidth * scale - w2) * 0.5f,
+               destRec.y + 350 * scale, fontSize, LIGHTGRAY);
+      DrawText(credit3, destRec.x + (virtualWidth * scale - w3) * 0.5f,
+               destRec.y + 500 * scale, fontSize, LIGHTGRAY);
     }
 
     EndDrawing();
   }
 
-  UnloadMetroResources(); // Clean up shared model + shader
+  UnloadMetroResources();
   UnloadShader(bloomShader);
   UnloadModel(flowerPlane);
   UnloadRenderTexture(flowerRT);
