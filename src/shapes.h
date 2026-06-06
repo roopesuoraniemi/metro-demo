@@ -1,9 +1,28 @@
 #pragma once
 #include "raylib.h"
+#include <vector>
 
-void InitMetro(float size);
-void DrawFinnishMetro();
-void UnloadMetro();
-Vector3 GetMetroDoorLocation(int carIndex, bool side, float size);
-Vector3 GetMetroEndLocation(float size);
-Vector3 GetMetroInsideLocation(int carIndex, float size);
+typedef struct Metro {
+  Vector3 center;   // curve vertex + layout anchor (world)
+  Vector3 position; // dynamic world offset (starts {0,0,0})
+  Vector3 velocity; // units/second
+  float yaw;        // rotation about Y, applied about the metro center (radians)
+  int numCars;
+  int layoutCars; // anchor count so spawned cars only extend the tail
+  float size;
+  std::vector<Matrix> orange, gray, lightGray, blue;
+} Metro;
+
+void InitMetroResources();
+void UnloadMetroResources();
+
+Metro CreateMetro(Vector3 center, int numCars, float size, Vector3 velocity);
+void RebuildMetro(Metro *m);
+void UpdateMetro(Metro *m, float dt);
+void DrawMetro(const Metro *m);
+
+Vector3 GetMetroDoorLocation(const Metro *m, int carIndex, bool side);
+Vector3 GetMetroEndLocation(const Metro *m);
+Vector3 GetMetroInsideLocation(const Metro *m, int carIndex);
+Vector3 GetMetroPathPoint(const Metro *m, float t);
+Vector3 GetMetroCurveCenter(const Metro *m);

@@ -10,6 +10,7 @@ in mat4 instanceTransform;
 // Input uniform values
 uniform mat4 mvp;
 uniform mat4 matNormal;
+uniform mat4 metroTransform;
 
 // Output vertex attributes (to fragment shader)
 out vec2 fragTexCoord;
@@ -17,8 +18,8 @@ out vec4 fragColor;
 
 void main()
 {
-    // Compute MVP for current instance
-    mat4 mvpi = mvp * instanceTransform;
+    // Compute MVP for current instance (metroTransform offsets the whole metro)
+    mat4 mvpi = mvp * metroTransform * instanceTransform;
     
     fragTexCoord = vertexTexCoord;
     fragColor = vertexColor;

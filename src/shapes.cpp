@@ -4,60 +4,46 @@
 #include <vector>
 
 #define GAP 0.075
-#define STEP_SIZE 0.08
-#define NUM_CARS 6
-
-static std::vector<Matrix> orangeTransforms;
-static std::vector<Matrix> grayTransforms;
-static std::vector<Matrix> lightGrayTransforms;
-static std::vector<Matrix> blueTransforms;
-
-static Vector3 center = {50.0f, 2.0f, -25.0f};
+#define STEP_SIZE 0.1
 
 static Model dotModel;
 static Shader instancingShader;
+static int gMetroTransformLoc = -1;
 
-static float MetroPathZ(float x, float size) {
+static float MetroPathZ(Vector3 center, float x, float size) {
   float curvature = 0.012f / size;
   float dx = x - center.x;
   float zOffset = curvature * dx * dx;
   return center.z + zOffset;
 }
 
-static float MetroPathSlope(float x, float size) {
+static float MetroPathSlope(Vector3 center, float x, float size) {
   float curvature = 0.012f / size;
   float dx = x - center.x;
   return 2.0f * curvature * dx;
 }
 
-void InitMetro(float size) {
-  orangeTransforms.clear();
-  grayTransforms.clear();
-  lightGrayTransforms.clear();
-  blueTransforms.clear();
+// Car center X anchored to the layout car count. Independent of the current car
+// count, so appending cars never shifts the existing ones.
+static float CarCenterX(Vector3 center, int layoutCars, int carIndex,
+                        float size) {
+  float carLength = 10.0f * size;
+  float gap = GAP * size;
+  return center.x + (carIndex - (layoutCars - 1) / 2.0f) * (carLength + gap);
+}
 
+static void BuildMetroGeometry(Metro *m) {
+  m->orange.clear();
+  m->gray.clear();
+  m->lightGray.clear();
+  m->blue.clear();
+
+  float size = m->size;
   float step = STEP_SIZE * size;
-  float dotRadius = 0.025f;
-
-  Mesh cubeMesh =
-      GenMeshCube(dotRadius * 2.0f, dotRadius * 2.0f, dotRadius * 2.0f);
-  dotModel = LoadModelFromMesh(cubeMesh);
-
-  instancingShader = LoadShader("instancing.vs", "instancing.fs");
-
-  instancingShader.locs[SHADER_LOC_MATRIX_MVP] =
-      GetShaderLocation(instancingShader, "mvp");
-  instancingShader.locs[SHADER_LOC_MATRIX_MODEL] =
-      GetShaderLocationAttrib(instancingShader, "instanceTransform");
-  instancingShader.locs[SHADER_LOC_COLOR_DIFFUSE] =
-      GetShaderLocation(instancingShader, "colDiffuse");
-
-  dotModel.materials[0].shader = instancingShader;
 
   float carLength = 10.0f * size;
   float carWidth = 2.5f * size;
   float carHeight = 2.5f * size;
-  float gap = GAP * size;
 
   auto getColorGroup = [&](Vector3 local) -> std::vector<Matrix> & {
     float minY = -carHeight / 2.0f;
@@ -65,7 +51,7 @@ void InitMetro(float size) {
     float minZ = -carWidth / 2.0f;
     float maxZ = carWidth / 2.0f;
 
-    if (local.y >= maxY - step / 2.0f) return lightGrayTransforms;
+    if (local.y >= maxY - step / 2.0f) return m->lightGray;
 
     if (local.z <= minZ + step / 2.0f || local.z >= maxZ - step / 2.0f) {
       float relX = local.x;
@@ -74,19 +60,19 @@ void InitMetro(float size) {
       float doorOffset = 0.0f;
       if (relX >= doorOffset - 0.5f && relX <= doorOffset + 0.5f &&
           relY >= -1.1f && relY <= 0.7f) {
-        return grayTransforms;
+        return m->gray;
       }
 
       float windowOffsets[4] = {-3.5f, -1.8f, 1.8f, 3.5f};
       for (int w = 0; w < 4; w++) {
         if (relX >= windowOffsets[w] - 0.6f &&
             relX <= windowOffsets[w] + 0.6f && relY >= -0.1f && relY <= 0.7f) {
-          return blueTransforms;
+          return m->blue;
         }
       }
     }
 
-    return orangeTransforms;
+    return m->orange;
   };
 
   auto toWorld = [](Vector3 local, Vector3 carCenter, Vector3 forward,
@@ -105,13 +91,12 @@ void InitMetro(float size) {
     getColorGroup(local).push_back(transform);
   };
 
-  for (int i = 0; i < NUM_CARS; i++) {
-    float carCenterX =
-        center.x + (i - (NUM_CARS - 1) / 2.0f) * (carLength + gap);
-    float carCenterZ = MetroPathZ(carCenterX, size);
-    float slope = MetroPathSlope(carCenterX, size);
+  for (int i = 0; i < m->numCars; i++) {
+    float carCenterX = CarCenterX(m->center, m->layoutCars, i, size);
+    float carCenterZ = MetroPathZ(m->center, carCenterX, size);
+    float slope = MetroPathSlope(m->center, carCenterX, size);
 
-    Vector3 carCenter = {carCenterX, center.y, carCenterZ};
+    Vector3 carCenter = {carCenterX, m->center.y, carCenterZ};
     Vector3 forward = Vector3Normalize((Vector3){1.0f, 0.0f, slope});
     Vector3 right = (Vector3){-forward.z, 0.0f, forward.x};
 
@@ -145,56 +130,90 @@ void InitMetro(float size) {
   }
 }
 
-void DrawFinnishMetro() {
-  if (!orangeTransforms.empty()) {
-    dotModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color =
-        Color{255, 50, 0, 255};
-    DrawMeshInstanced(dotModel.meshes[0], dotModel.materials[0],
-                      orangeTransforms.data(), orangeTransforms.size());
-  }
+void InitMetroResources() {
+  float dotRadius = 0.025f;
 
-  if (!grayTransforms.empty()) {
-    dotModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = GRAY;
-    DrawMeshInstanced(dotModel.meshes[0], dotModel.materials[0],
-                      grayTransforms.data(), grayTransforms.size());
-  }
+  Mesh cubeMesh =
+      GenMeshCube(dotRadius * 2.0f, dotRadius * 2.0f, dotRadius * 2.0f);
+  dotModel = LoadModelFromMesh(cubeMesh);
 
-  if (!lightGrayTransforms.empty()) {
-    dotModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = LIGHTGRAY;
-    DrawMeshInstanced(dotModel.meshes[0], dotModel.materials[0],
-                      lightGrayTransforms.data(), lightGrayTransforms.size());
-  }
+  instancingShader = LoadShader("instancing.vs", "instancing.fs");
 
-  if (!blueTransforms.empty()) {
-    dotModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = BLUE;
-    DrawMeshInstanced(dotModel.meshes[0], dotModel.materials[0],
-                      blueTransforms.data(), blueTransforms.size());
-  }
+  instancingShader.locs[SHADER_LOC_MATRIX_MVP] =
+      GetShaderLocation(instancingShader, "mvp");
+  instancingShader.locs[SHADER_LOC_MATRIX_MODEL] =
+      GetShaderLocationAttrib(instancingShader, "instanceTransform");
+  instancingShader.locs[SHADER_LOC_COLOR_DIFFUSE] =
+      GetShaderLocation(instancingShader, "colDiffuse");
+
+  gMetroTransformLoc = GetShaderLocation(instancingShader, "metroTransform");
+
+  dotModel.materials[0].shader = instancingShader;
 }
 
-void UnloadMetro() {
+void UnloadMetroResources() {
   UnloadModel(dotModel);
   UnloadShader(instancingShader);
-  orangeTransforms.clear();
-  grayTransforms.clear();
-  lightGrayTransforms.clear();
-  blueTransforms.clear();
 }
 
-Vector3 GetMetroDoorLocation(int carIndex, bool side, float size) {
-  float carLength = 10.0f * size;
+Metro CreateMetro(Vector3 center, int numCars, float size, Vector3 velocity) {
+  Metro m;
+  m.center = center;
+  m.position = (Vector3){0.0f, 0.0f, 0.0f};
+  m.velocity = velocity;
+  m.yaw = 0.0f;
+  m.numCars = numCars;
+  m.layoutCars = numCars;
+  m.size = size;
+  BuildMetroGeometry(&m);
+  return m;
+}
+
+void RebuildMetro(Metro *m) { BuildMetroGeometry(m); }
+
+void UpdateMetro(Metro *m, float dt) {
+  m->position = Vector3Add(m->position, Vector3Scale(m->velocity, dt));
+}
+
+static void DrawInstanceGroup(const std::vector<Matrix> &group, Color color) {
+  if (group.empty()) return;
+  dotModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = color;
+  DrawMeshInstanced(dotModel.meshes[0], dotModel.materials[0], group.data(),
+                    (int)group.size());
+}
+
+void DrawMetro(const Metro *m) {
+  // Rotate the metro about its own center, then apply the world position
+  // offset: world = position + center + RotateY(yaw) * (vertex - center).
+  Matrix toLocal =
+      MatrixTranslate(-m->center.x, -m->center.y, -m->center.z);
+  Matrix rot = MatrixRotateY(m->yaw);
+  Matrix back = MatrixTranslate(m->center.x + m->position.x,
+                                m->center.y + m->position.y,
+                                m->center.z + m->position.z);
+  Matrix t = MatrixMultiply(MatrixMultiply(toLocal, rot), back);
+  if (gMetroTransformLoc >= 0) {
+    SetShaderValueMatrix(instancingShader, gMetroTransformLoc, t);
+  }
+
+  DrawInstanceGroup(m->orange, Color{255, 50, 0, 255});
+  DrawInstanceGroup(m->gray, GRAY);
+  DrawInstanceGroup(m->lightGray, LIGHTGRAY);
+  DrawInstanceGroup(m->blue, BLUE);
+}
+
+Vector3 GetMetroDoorLocation(const Metro *m, int carIndex, bool side) {
+  float size = m->size;
   float carWidth = 2.5f * size;
-  float gap = GAP * size;
 
   if (carIndex < 0) carIndex = 0;
-  if (carIndex > NUM_CARS - 1) carIndex = NUM_CARS - 1;
+  if (carIndex > m->numCars - 1) carIndex = m->numCars - 1;
 
-  float carCenterX =
-      center.x + (carIndex - (NUM_CARS - 1) / 2.0f) * (carLength + gap);
-  float carCenterZ = MetroPathZ(carCenterX, size);
-  float slope = MetroPathSlope(carCenterX, size);
+  float carCenterX = CarCenterX(m->center, m->layoutCars, carIndex, size);
+  float carCenterZ = MetroPathZ(m->center, carCenterX, size);
+  float slope = MetroPathSlope(m->center, carCenterX, size);
 
-  Vector3 carCenter = {carCenterX, center.y, carCenterZ};
+  Vector3 carCenter = {carCenterX, m->center.y, carCenterZ};
   Vector3 forward = Vector3Normalize((Vector3){1.0f, 0.0f, slope});
   Vector3 right = (Vector3){-forward.z, 0.0f, forward.x};
 
@@ -204,35 +223,59 @@ Vector3 GetMetroDoorLocation(int carIndex, bool side, float size) {
   Vector3 door = carCenter;
   door = Vector3Add(door, (Vector3){0.0f, doorLocalY, 0.0f});
   door = Vector3Add(door, Vector3Scale(right, doorLocalZ));
-  return door;
+  return Vector3Add(door, m->position);
 }
 
-Vector3 GetMetroEndLocation(float size) {
+Vector3 GetMetroEndLocation(const Metro *m) {
+  float size = m->size;
   float carLength = 10.0f * size;
-  float gap = GAP * size;
 
-  float lastCarIndex = (float)(NUM_CARS - 1);
   float lastCarCenterX =
-      center.x + (lastCarIndex - (NUM_CARS - 1) / 2.0f) * (carLength + gap);
-  float lastCarCenterZ = MetroPathZ(lastCarCenterX, size);
-  float slope = MetroPathSlope(lastCarCenterX, size);
+      CarCenterX(m->center, m->layoutCars, m->numCars - 1, size);
+  float lastCarCenterZ = MetroPathZ(m->center, lastCarCenterX, size);
+  float slope = MetroPathSlope(m->center, lastCarCenterX, size);
 
-  Vector3 lastCenter = {lastCarCenterX, center.y, lastCarCenterZ};
+  Vector3 lastCenter = {lastCarCenterX, m->center.y, lastCarCenterZ};
   Vector3 forward = Vector3Normalize((Vector3){1.0f, 0.0f, slope});
 
-  return Vector3Add(lastCenter, Vector3Scale(forward, carLength / 2.0f));
+  Vector3 end = Vector3Add(lastCenter, Vector3Scale(forward, carLength / 2.0f));
+  return Vector3Add(end, m->position);
 }
 
-Vector3 GetMetroInsideLocation(int carIndex, float size) {
-  float carLength = 10.0f * size;
-  float gap = GAP * size;
+Vector3 GetMetroInsideLocation(const Metro *m, int carIndex) {
+  float size = m->size;
 
   if (carIndex < 0) carIndex = 0;
-  if (carIndex > NUM_CARS - 1) carIndex = NUM_CARS - 1;
+  if (carIndex > m->numCars - 1) carIndex = m->numCars - 1;
 
-  float carCenterX =
-      center.x + (carIndex - (NUM_CARS - 1) / 2.0f) * (carLength + gap);
-  float carCenterZ = MetroPathZ(carCenterX, size);
+  float carCenterX = CarCenterX(m->center, m->layoutCars, carIndex, size);
+  float carCenterZ = MetroPathZ(m->center, carCenterX, size);
 
-  return (Vector3){carCenterX, center.y - 0.2f, carCenterZ};
+  Vector3 inside = {carCenterX, m->center.y - 0.2f, carCenterZ};
+  return Vector3Add(inside, m->position);
+}
+
+// Returns a point along the metro's interior centerline. t = 0 is the center
+// of the entry car (carIndex 2), t = 1 is the far end of the last car. The
+// point follows the curved trajectory so the camera can fly down the tunnel.
+Vector3 GetMetroPathPoint(const Metro *m, float t) {
+  float size = m->size;
+  float carLength = 10.0f * size;
+
+  float startX = CarCenterX(m->center, m->layoutCars, 2, size);
+  float endX =
+      CarCenterX(m->center, m->layoutCars, m->numCars - 1, size) +
+      carLength / 2.0f;
+
+  float x = startX + (endX - startX) * t;
+  Vector3 point = {x, m->center.y - 0.2f, MetroPathZ(m->center, x, size)};
+  return Vector3Add(point, m->position);
+}
+
+Vector3 GetMetroCurveCenter(const Metro *m) {
+  float size = m->size;
+  float curvature = 0.012f / size;
+  float radius = 1.0f / (2.0f * curvature);
+  Vector3 c = {m->center.x, m->center.y + 8.0f, m->center.z + radius};
+  return Vector3Add(c, m->position);
 }
