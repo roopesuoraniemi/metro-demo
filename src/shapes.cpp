@@ -3,19 +3,25 @@
 #include "raymath.h"
 #include <vector>
 
+#define GAP 0.025
+#define STEP_SIZE 0.08
+#define NUM_CARS 4
+
 static std::vector<Matrix> orangeTransforms;
 static std::vector<Matrix> grayTransforms;
 static std::vector<Matrix> lightGrayTransforms;
 static std::vector<Matrix> blueTransforms;
 
+Vector3 center = {50.0f, 2.0f, -25.0f};
+
 static Model dotModel;
 static Shader instancingShader;
 
-void InitMetro() {
+void InitMetro(float size) {
   // The size of the cube is dotRadius * 2.0f
   // The distance between the center of each cube is step.
   // The physical gap is (step - (dotRadius * 2.0f))
-  float step = 0.08f;
+  float step = STEP_SIZE * size;
   float dotRadius = 0.025f;
 
   // Create the base cube model
@@ -37,12 +43,11 @@ void InitMetro() {
   // Assign the custom shader to the model material
   dotModel.materials[0].shader = instancingShader;
 
-  Vector3 center = {50.0f, 2.0f, -25.0f};
   int numCars = 4;
-  float carLength = 10.0f;
-  float carWidth = 2.5f;
-  float carHeight = 2.5f;
-  float gap = 0.25f;
+  float carLength = 10.0f * size;
+  float carWidth = 2.5f * size;
+  float carHeight = 2.5f * size;
+  float gap = GAP * size;
 
   auto getColorGroup = [&](Vector3 p,
                            Vector3 carCenter) -> std::vector<Matrix> & {
@@ -165,7 +170,7 @@ void UnloadMetro() {
 }
 
 // Returns the center position of a door on the specified metro car.
-Vector3 GetMetroDoorLocation(int carIndex, bool side) {
+Vector3 GetMetroDoorLocation(int carIndex, bool side, float size) {
   Vector3 trainCenter = {50.0f, 2.0f, -25.0f};
   int numCars = 4;
   float carLength = 10.0f;
@@ -188,4 +193,33 @@ Vector3 GetMetroDoorLocation(int carIndex, bool side) {
   float doorZ = trainCenter.z + (side ? (carWidth / 2.0f) : -(carWidth / 2.0f));
 
   return (Vector3){doorX, doorY, doorZ};
+}
+
+Vector3 GetMetroEndLocation(float size) {
+  float carLength = 10.0f * size;
+  float gap = GAP * (size * 0.5f);
+
+  float lastCarIndex = (float)(NUM_CARS - 1);
+  float lastCarCenterX = center.x + (lastCarIndex - (NUM_CARS - 1) / 2.0f) * (carLength + gap);
+
+  float endX = lastCarCenterX + (carLength / 2.0f);
+
+  return (Vector3){ endX, center.y, center.z };
+}
+
+Vector3 GetMetroInsideLocation(int carIndex, float size) {
+  float carLength = 10.0f * size;
+  float gap = GAP * (size * 0.5f);
+
+  if (carIndex < 0) carIndex = 0;
+  if (carIndex > NUM_CARS - 1) carIndex = NUM_CARS - 1;
+
+  float insideX = center.x + (carIndex - (NUM_CARS - 1) / 2.0f) * (carLength + gap);
+
+  float insideY = center.y - 0.2f;
+
+
+  float insideZ = center.z;
+
+  return (Vector3){ insideX, insideY, insideZ };
 }
