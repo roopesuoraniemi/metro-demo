@@ -3,6 +3,9 @@
 #include "shapes.h"
 #include <vector>
 
+extern "C" const unsigned char _binary_METRO_mp3_start[];
+extern "C" const unsigned char _binary_METRO_mp3_end[];
+
 struct FallingCity {
   const char *name;
   float x;
@@ -38,6 +41,11 @@ int main() {
   InitWindow(0, 0, "raylib demoscene starter");
   SetConfigFlags(FLAG_FULLSCREEN_MODE);
   DisableCursor();
+
+  InitAudioDevice();
+  size_t audio_len = _binary_METRO_mp3_end - _binary_METRO_mp3_start;
+  Music music = LoadMusicStreamFromMemory(".mp3", _binary_METRO_mp3_start, audio_len);
+  PlayMusicStream(music);
 
   Camera3D camera = {0};
   camera.position = (Vector3){50.0f, 0.0f, -35.0f};
@@ -263,6 +271,8 @@ void main()
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
+    UpdateMusicStream(music);
+
     float current_time = (float)GetTime();
     if (current_time < 5.0f) {
       UpdateCamera(&camera, CAMERA_ORBITAL);
@@ -780,6 +790,9 @@ void main()
 
     EndDrawing();
   }
+
+  UnloadMusicStream(music);
+  CloseAudioDevice();
 
   UnloadMetroResources();
   UnloadShader(bloomShader);

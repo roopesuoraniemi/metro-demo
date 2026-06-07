@@ -18,9 +18,10 @@ all: $(OUT)
 setup:
 	./getting_started.sh
 
-$(OUT): $(SRC)
+$(OUT): $(SRC) METRO.mp3
 	mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(RAYLIB_FLAGS) $(PLATFORM_LIBS)
+	objcopy -I binary -O elf64-x86-64 -B i386:x86-64 METRO.mp3 $(BIN_DIR)/METRO.o
+	$(CXX) $(CXXFLAGS) $(SRC) $(BIN_DIR)/METRO.o -o $@ $(RAYLIB_FLAGS) $(PLATFORM_LIBS)
 
 run: $(OUT)
 	./$(OUT)
