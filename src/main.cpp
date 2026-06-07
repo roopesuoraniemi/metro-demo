@@ -3,8 +3,8 @@
 #include "shapes.h"
 #include <vector>
 
-extern "C" const unsigned char _binary_METRO_mp3_start[];
-extern "C" const unsigned char _binary_METRO_mp3_end[];
+extern "C" const unsigned char _binary_METRO_FINAL_TRUSTMEBRO_mp3_start[];
+extern "C" const unsigned char _binary_METRO_FINAL_TRUSTMEBRO_mp3_end[];
 
 struct FallingCity {
   const char *name;
@@ -49,8 +49,8 @@ int main() {
   DisableCursor();
 
   InitAudioDevice();
-  size_t audio_len = _binary_METRO_mp3_end - _binary_METRO_mp3_start;
-  Music music = LoadMusicStreamFromMemory(".mp3", _binary_METRO_mp3_start, audio_len);
+  size_t audio_len = _binary_METRO_FINAL_TRUSTMEBRO_mp3_end - _binary_METRO_FINAL_TRUSTMEBRO_mp3_start;
+  Music music = LoadMusicStreamFromMemory(".mp3", _binary_METRO_FINAL_TRUSTMEBRO_mp3_start, audio_len);
   SetMusicVolume(music, 1.5f); // Increase volume to 150%
   PlayMusicStream(music);
 
