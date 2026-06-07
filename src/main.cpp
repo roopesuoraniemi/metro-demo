@@ -15,13 +15,19 @@ struct FallingCity {
 
 int main() {
 
+  const float time_scale = 0.65f;
+
   const float camera_speed = 0.01f;
   const float turn_responsiveness = 2.8f;
   const float zoom_arc_height = 7.0f;
+  // Intro / fly-through durations (seconds of scene time).
   const float zoom_duration = 2.0f;
   const float ride_duration = 1.0f;
   const float return_duration = 6.0f;
+  const float orbital_duration = 5.0f;
+  const float ride_start_time = orbital_duration + 5.0f / 6.0f;
 
+  // Intro / fly-through speeds (world units per second of scene time).
   const float fly_initial_speed = 0.04f;
   const float fly_accel = 0.22f;
 
@@ -164,9 +170,12 @@ void main()
       0.75f; // build star metros before fly-through ends
   bool star_prewarmed = false;
   std::vector<Metro> pendingStarMetros;
-  const float spin_duration = 4.0f;   // time for the 360-degree spin
-  const float spin_look_dist = 30.0f; // look target distance during the spin
-  const float ride_out_speed = 55.0f; // original train rides out of frame
+  // Star formation / bloom zoom (flower_pace > 1 runs this block faster).
+  const float flower_pace = 1.2f;
+  const float spin_duration = 4.0f;
+  const float spin_look_dist = 30.0f;
+  const float ride_out_speed = 55.0f;
+  const float bloom_zoom_duration = 6.0f;
 
   // Cheap copies of the finished flower. The real metro flower is snapshotted
   // into a texture once, then drawn on flat ground quads so we can render many
@@ -178,7 +187,6 @@ void main()
   const int flower_grid = 4;           // (2*4+1)^2 - 1 = 80 cheap flowers
   const float flower_spacing = 130.0f; // distance between cheap flowers
   const float flower_size = 80.0f;     // world size of each flower quad
-  const float bloom_zoom_duration = 6.0f;
   RenderTexture2D flowerRT = LoadRenderTexture(512, 512);
   Model flowerPlane =
       LoadModelFromMesh(GenMeshPlane(flower_size, flower_size, 1, 1));
@@ -206,6 +214,7 @@ void main()
   Metro chosenMetro;
   float drive_heading = 0.0f;
   const int chosen_idx = 0;
+  // Flower handoff -> squiggle -> snake end sequence.
   const float zoomin_duration = 4.0f;
   const float chosen_fly_accel = 0.02f;
   const float chosen_fly_car_count = 3.0f;
@@ -213,6 +222,10 @@ void main()
   const float squiggle_ramp_duration = 4.0f;
   const float snake_omega_target = 3.0f;
   const float snake_amp_target = 8.0f;
+  const float snake_zoom_in_duration = 3.0f;
+  const float snake_hold_duration = 7.0f;
+  const float disintegrate_duration = 3.0f;
+  const float end_text_pace = 1.2f; // >1 shortens city rain + credits
   float drive_speed = 40.0f;
 
   float snake_timer = 0.0f;
@@ -268,17 +281,20 @@ void main()
   std::vector<FallingCity> fallingCities;
   int next_city = 0;
   float city_spawn_timer = 0.0f;
+  float scene_time = 0.0f;
 
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
     UpdateMusicStream(music);
 
-    float current_time = (float)GetTime();
-    if (current_time < 5.0f) {
+    float dt = GetFrameTime() * time_scale;
+    scene_time += dt;
+
+    if (scene_time < orbital_duration) {
       UpdateCamera(&camera, CAMERA_ORBITAL);
     }
-    if (!zoom_done && current_time >= 5.0f) {
+    if (!zoom_done && scene_time >= orbital_duration) {
       Vector3 door_location = GetMetroDoorLocation(&primary, 2, true);
       float distance = Vector3Distance(door_location, camera.position);
       float target_distance = Vector3Distance(camera.target, door_location);
@@ -288,7 +304,7 @@ void main()
         zoom_end = door_location;
         zoom_t = 0.0f;
       }
-      zoom_t += GetFrameTime() / zoom_duration;
+      zoom_t += dt / zoom_duration;
       if (zoom_t > 1.0f)
         zoom_t = 1.0f;
       camera.position = FloorParallelArcPoint(
@@ -297,12 +313,12 @@ void main()
         zoom_done = true;
       }
       if (target_distance >= 0.01f) {
-        float turn_alpha = 1.0f - expf(-turn_responsiveness * GetFrameTime());
+        float turn_alpha = 1.0f - expf(-turn_responsiveness * dt);
         camera.target = Vector3Lerp(camera.target, door_location, turn_alpha);
       }
     }
 
-    if (zoom_done && current_time >= 5.833f) {
+    if (zoom_done && scene_time >= ride_start_time) {
       Vector3 center = GetMetroInsideLocation(&primary, 2);
       Vector3 target_location = GetMetroEndLocation(&primary);
       float distance = Vector3Distance(center, camera.position);
@@ -314,7 +330,7 @@ void main()
         ride_t = 0.0f;
       }
       if (distance >= 0.3f && ride_t < 1.0f) {
-        ride_t += GetFrameTime() / ride_duration;
+        ride_t += dt / ride_duration;
         if (ride_t > 1.0f)
           ride_t = 1.0f;
         camera.position = Vector3Lerp(ride_start, ride_end, EaseInOut(ride_t));
@@ -323,7 +339,7 @@ void main()
         ride_done = true;
       }
       if (target_distance >= 0.001f) {
-        float turn_alpha = 1.0f - expf(-turn_responsiveness * GetFrameTime());
+        float turn_alpha = 1.0f - expf(-turn_responsiveness * dt);
         camera.target = Vector3Lerp(camera.target, target_location, turn_alpha);
       }
     }
@@ -340,8 +356,8 @@ void main()
         primary.numCars = 10;
         RebuildMetro(&primary);
       }
-      fly_speed += fly_accel * GetFrameTime();
-      fly_progress += fly_speed * GetFrameTime();
+      fly_speed += fly_accel * dt;
+      fly_progress += fly_speed * dt;
       if (fly_progress > 1.0f)
         fly_progress = 1.0f;
 
@@ -351,7 +367,7 @@ void main()
       if (look_ahead > 1.0f)
         look_ahead = 1.0f;
       Vector3 ahead = GetMetroPathPoint(&primary, look_ahead);
-      float turn_alpha = 1.0f - expf(-turn_responsiveness * GetFrameTime());
+      float turn_alpha = 1.0f - expf(-turn_responsiveness * dt);
       camera.target = Vector3Lerp(camera.target, ahead, turn_alpha);
     }
 
@@ -393,7 +409,7 @@ void main()
         star_started = true;
       }
 
-      spin_t += GetFrameTime() / spin_duration;
+      spin_t += (dt * flower_pace) / spin_duration;
       if (spin_t > 1.0f)
         spin_t = 1.0f;
       float ang = spin_start_angle + spin_t * (2.0f * PI);
@@ -412,7 +428,7 @@ void main()
         return_focus_start = camera.target;
         return_t = 0.0f;
       }
-      return_t += GetFrameTime() / return_duration;
+      return_t += (dt * flower_pace) / return_duration;
       if (return_t > 1.0f)
         return_t = 1.0f;
       float eased_return_t = EaseInOut(return_t);
@@ -427,11 +443,11 @@ void main()
 
     // Move the trains independently of the camera: the original keeps riding
     // out, the extras converge toward the center and stop there.
-    if (spin_started) {
-      float dt = GetFrameTime();
-      UpdateMetro(&primary, dt);
+    if (spin_started && !attached) {
+      float flower_dt = dt * flower_pace;
+      UpdateMetro(&primary, flower_dt);
       for (Metro &m : metros) {
-        UpdateMetro(&m, dt);
+        UpdateMetro(&m, flower_dt);
         // Stop once the metro reaches/overshoots the center point.
         if (Vector3DotProduct(m.position, m.velocity) > 0.0f) {
           m.position = (Vector3){0, 0, 0};
@@ -489,7 +505,7 @@ void main()
 
     // Zoom out to reveal the field of cheap flowers.
     if (flowers_spawned && bloom_zoom_t < 1.0f) {
-      bloom_zoom_t += GetFrameTime() / bloom_zoom_duration;
+      bloom_zoom_t += (dt * flower_pace) / bloom_zoom_duration;
       if (bloom_zoom_t > 1.0f)
         bloom_zoom_t = 1.0f;
       float extent = (float)flower_grid * flower_spacing;
@@ -513,8 +529,7 @@ void main()
         follow_pose = GetMetroInsideLocation(&c, 2);
         follow_target = GetMetroEndLocation(&c);
       }
-      float dt = GetFrameTime();
-      zoomin_t += dt / zoomin_duration;
+      zoomin_t += (dt * flower_pace) / zoomin_duration;
       if (zoomin_t > 1.0f)
         zoomin_t = 1.0f;
       float ez = EaseInOut(zoomin_t);
@@ -565,7 +580,6 @@ void main()
 
     // Pre-snake: fly through ~3 carriages, rise, ramp squiggle frequency.
     if (attached && !snake_active) {
-      float dt = GetFrameTime();
       Vector3 fwd =
           (Vector3){cosf(chosenMetro.yaw), 0.0f, -sinf(chosenMetro.yaw)};
 
@@ -621,28 +635,30 @@ void main()
 
     // Snake end sequence (unchanged): drive, camera zoom-in, disintegration.
     if (attached && snake_active) {
-      float dt = GetFrameTime();
       snake_timer += dt;
+      const float snake_hold_end =
+          snake_zoom_in_duration + snake_hold_duration / end_text_pace;
 
-      // Zoom in between 0 and 3 seconds
-      if (snake_timer <= 3.0f) {
-        float zoom_alpha = snake_timer / 3.0f;
+      // Zoom in between 0 and snake_zoom_in_duration seconds
+      if (snake_timer <= snake_zoom_in_duration) {
+        float zoom_alpha = snake_timer / snake_zoom_in_duration;
         // Smoothly interpolate chase parameters
         chase_back = 50.0f - (35.0f * zoom_alpha);   // down to 15
         chase_height = 70.0f - (60.0f * zoom_alpha); // down to 10
-      } else if (snake_timer > 3.0f && snake_timer <= 10.0f) {
+      } else if (snake_timer > snake_zoom_in_duration &&
+                 snake_timer <= snake_hold_end) {
         chase_back = 15.0f;
         chase_height = 10.0f;
       }
 
-      if (snake_timer > 10.0f) {
+      if (snake_timer > snake_hold_end) {
         disintegrating = true;
       }
 
       if (disintegrating) {
-        disintegrate_t += dt / 3.0f;
-        if (disintegrate_t > 3.0f)
-          break; // exit demoscene after 6 seconds of extra particles
+        disintegrate_t += (dt * end_text_pace) / disintegrate_duration;
+        if (disintegrate_t > disintegrate_duration)
+          break;
 
         float t_clamp = fminf(disintegrate_t, 1.0f);
         // Decelerate the train
@@ -659,13 +675,13 @@ void main()
       fwd = Vector3Scale(fwd, -1.0f);
       chosenMetro.position =
           Vector3Add(chosenMetro.position, Vector3Scale(fwd, drive_speed * dt));
-      chosenMetro.waveOmega *= 1.001f; // squiggle accelerates over time
+      chosenMetro.waveOmega *= powf(1.001f, dt * 60.0f); // ~0.1%/sec at 60fps
       chosenMetro.waveTime += dt;
       chosenMetro.disintegrateAmount = disintegrate_t;
 
       // Spawn city labels at the top; fall speed matches squiggle phase speed.
       float fall_speed = chosenMetro.waveOmega * city_fall_factor;
-      city_spawn_timer += dt;
+      city_spawn_timer += dt * end_text_pace;
       if (city_spawn_timer >= city_spawn_interval) {
         city_spawn_timer = 0.0f;
         const char *name = city_names[next_city];
@@ -680,7 +696,7 @@ void main()
              -60.0f, fontSize});
       }
       for (size_t i = 0; i < fallingCities.size();) {
-        fallingCities[i].y += fall_speed * dt;
+        fallingCities[i].y += fall_speed * end_text_pace * dt;
         if (fallingCities[i].y > (float)virtualHeight + 80.0f) {
           fallingCities.erase(fallingCities.begin() + i);
         } else {
@@ -756,12 +772,12 @@ void main()
                    WHITE);
     EndShaderMode();
 
-    if (current_time > 1.8f && current_time < 5.0f) {
-      int fontSize = (int)((150 + 50 * sinf(current_time * 6.0f)) * scale);
+    if (scene_time > 1.8f && scene_time < orbital_duration) {
+      int fontSize = (int)((150 + 50 * sinf(scene_time * 6.0f)) * scale);
       DrawText("METRO", destRec.x + 400 * scale, destRec.y + 400 * scale,
                fontSize, LIGHTGRAY);
 
-      int fontSizeSmall = (int)((40 + 10 * sinf(current_time * 6.0f)) * scale);
+      int fontSizeSmall = (int)((40 + 10 * sinf(scene_time * 6.0f)) * scale);
       DrawText("Graffathon 26", destRec.x + 400 * scale,
                destRec.y + 550 * scale, fontSizeSmall, DARKGRAY);
     }
