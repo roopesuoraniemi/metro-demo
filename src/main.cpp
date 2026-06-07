@@ -174,21 +174,36 @@ void main()
   Model flowerPlane =
       LoadModelFromMesh(GenMeshPlane(flower_size, flower_size, 1, 1));
 
-  // After the zoom out, zoom back in, then drop the camera inside one flower
-  // metro and ride it as it drives away on a curve. Cheap flowers and the
-  // leftover metros are culled once they are off screen.
+  // After zoom-out: inside fly-through -> rise -> ramp squiggle, then the
+  // existing snake end sequence (camera zoom-in, disintegration, etc.).
   bool zoomin_started = false;
   bool flowers_cleared = false;
   bool attached = false;
+  bool rise_started = false;
+  bool snake_active = false;
   float zoomin_t = 0.0f;
+  float chosen_fly_progress = 0.0f;
+  float chosen_fly_speed = 0.0f;
+  float chosen_fly_max_t = 1.0f;
+  float rise_t = 0.0f;
+  float squiggle_ramp_t = 0.0f;
+  float zoom_fly_handoff = 0.0f;
   Vector3 zoomin_start = {0};
   Vector3 zoomin_target_start = {0};
   Vector3 follow_pose = {0};
   Vector3 follow_target = {0};
-  Metro chosenMetro; // the metro the camera rides once attached
+  Vector3 rise_cam_start = {0};
+  Vector3 rise_target_start = {0};
+  Metro chosenMetro;
   float drive_heading = 0.0f;
   const int chosen_idx = 0;
   const float zoomin_duration = 4.0f;
+  const float chosen_fly_accel = 0.02f;
+  const float chosen_fly_car_count = 3.0f;
+  const float chosen_rise_duration = 5.0f;
+  const float squiggle_ramp_duration = 4.0f;
+  const float snake_omega_target = 3.0f;
+  const float snake_amp_target = 8.0f;
   float drive_speed = 40.0f;
 
   float snake_timer = 0.0f;
@@ -475,8 +490,7 @@ void main()
       camera.target = primary.center;
     }
 
-    // After the zoom out, zoom back in toward the chosen flower metro, ending
-    // exactly at the follow pose so attaching is seamless.
+    // Zoom back in and dive inside the chosen flower metro.
     if (flowers_spawned && bloom_zoom_t >= 1.0f && !attached &&
         !metros.empty()) {
       if (!zoomin_started) {
@@ -485,21 +499,31 @@ void main()
         zoomin_start = camera.position;
         zoomin_target_start = camera.target;
         Metro &c = metros[chosen_idx];
-        Vector3 cPos = Vector3Add(c.center, c.position);
-        Vector3 fwd = (Vector3){cosf(c.yaw), 0.0f, -sinf(c.yaw)};
-        follow_pose =
-            Vector3Add(Vector3Subtract(cPos, Vector3Scale(fwd, chase_back)),
-                       (Vector3){0.0f, chase_height, 0.0f});
-        follow_target = cPos;
+        follow_pose = GetMetroInsideLocation(&c, 2);
+        follow_target = GetMetroEndLocation(&c);
       }
-      zoomin_t += GetFrameTime() / zoomin_duration;
+      float dt = GetFrameTime();
+      zoomin_t += dt / zoomin_duration;
       if (zoomin_t > 1.0f)
         zoomin_t = 1.0f;
       float ez = EaseInOut(zoomin_t);
-      camera.position = Vector3Lerp(zoomin_start, follow_pose, ez);
-      camera.target = Vector3Lerp(zoomin_target_start, follow_target, ez);
+      Metro &c = metros[chosen_idx];
+      Vector3 zoom_pos = Vector3Lerp(zoomin_start, follow_pose, ez);
+      Vector3 zoom_tgt =
+          Vector3Lerp(zoomin_target_start, follow_target, ez);
+      if (zoomin_t > 0.88f) {
+        float blend = EaseInOut((zoomin_t - 0.88f) / 0.12f);
+        zoom_fly_handoff = 0.06f * blend;
+        Vector3 path_pos = GetMetroPathPoint(&c, zoom_fly_handoff);
+        Vector3 path_tgt = GetMetroPathPoint(&c, zoom_fly_handoff + 0.08f);
+        camera.position = Vector3Lerp(zoom_pos, path_pos, blend);
+        camera.target = Vector3Lerp(zoom_tgt, path_tgt, blend);
+      } else {
+        zoom_fly_handoff = 0.0f;
+        camera.position = zoom_pos;
+        camera.target = zoom_tgt;
+      }
 
-      // The cheap flowers are off screen by now; drop them.
       if (!flowers_cleared && zoomin_t > 0.6f) {
         flowerPositions.clear();
         flowers_cleared = true;
@@ -509,19 +533,83 @@ void main()
         attached = true;
         chosenMetro = metros[chosen_idx];
         metros.erase(metros.begin() + chosen_idx);
+        metros.clear();
         drive_heading = chosenMetro.yaw;
-        // Turn the rigid body into a slithering snake.
-        chosenMetro.waveAmp = 8.0f;
+        chosen_fly_progress = zoom_fly_handoff;
+        chosen_fly_speed = fly_initial_speed;
+        float carLen = 10.0f * chosenMetro.size;
+        float carStep = carLen + 0.075f * chosenMetro.size;
+        int lastCar = chosenMetro.numCars - 1;
+        float pathSpan = (lastCar - 2) * carStep + carLen * 0.5f;
+        chosen_fly_max_t = (chosen_fly_car_count * carStep) / pathSpan;
+        if (chosen_fly_max_t > 1.0f)
+          chosen_fly_max_t = 1.0f;
+        chosenMetro.waveAmp = 0.0f;
         chosenMetro.waveK = 2.0f * PI / 30.0f;
-        chosenMetro.waveOmega = 3.0f;
-        city_spawn_timer =
-            city_spawn_interval; // first city appears immediately
+        chosenMetro.waveOmega = 0.0f;
+        chosenMetro.waveTime = 0.0f;
+        chosenMetro.disintegrateAmount = 0.0f;
       }
     }
 
-    // Drive the chosen metro away while it squiggles. Remaining flower metros
-    // are culled once they leave the screen.
-    if (attached) {
+    // Pre-snake: fly through ~3 carriages, rise, ramp squiggle frequency.
+    if (attached && !snake_active) {
+      float dt = GetFrameTime();
+      Vector3 fwd =
+          (Vector3){cosf(chosenMetro.yaw), 0.0f, -sinf(chosenMetro.yaw)};
+
+      if (chosen_fly_progress < chosen_fly_max_t) {
+        chosen_fly_speed += chosen_fly_accel * dt;
+        chosen_fly_progress += chosen_fly_speed * dt;
+        if (chosen_fly_progress > chosen_fly_max_t)
+          chosen_fly_progress = chosen_fly_max_t;
+        camera.position =
+            GetMetroPathPoint(&chosenMetro, chosen_fly_progress);
+        float look_ahead = chosen_fly_progress + 0.08f;
+        if (look_ahead > chosen_fly_max_t)
+          look_ahead = chosen_fly_max_t;
+        Vector3 ahead = GetMetroPathPoint(&chosenMetro, look_ahead);
+        float turn_alpha = 1.0f - expf(-turn_responsiveness * dt);
+        camera.target = Vector3Lerp(camera.target, ahead, turn_alpha);
+      } else if (!rise_started) {
+        rise_started = true;
+        rise_t = 0.0f;
+        squiggle_ramp_t = 0.0f;
+        rise_cam_start = camera.position;
+        rise_target_start = camera.target;
+      } else {
+        rise_t += dt / chosen_rise_duration;
+        if (rise_t > 1.0f)
+          rise_t = 1.0f;
+        squiggle_ramp_t += dt / squiggle_ramp_duration;
+        if (squiggle_ramp_t > 1.0f)
+          squiggle_ramp_t = 1.0f;
+        float ez = EaseInOut(rise_t);
+        float sr = EaseInOut(squiggle_ramp_t);
+        Vector3 cPos = Vector3Add(chosenMetro.center, chosenMetro.position);
+        Vector3 chase_pose =
+            Vector3Add(Vector3Subtract(cPos, Vector3Scale(fwd, chase_back)),
+                       (Vector3){0.0f, chase_height, 0.0f});
+        camera.position = Vector3Lerp(rise_cam_start, chase_pose, ez);
+        camera.target = Vector3Lerp(rise_target_start, cPos, ez);
+        chosenMetro.waveAmp = snake_amp_target * sr;
+        chosenMetro.waveOmega = snake_omega_target * sr;
+        chosenMetro.waveTime += dt;
+
+        if (rise_t >= 1.0f && squiggle_ramp_t >= 1.0f) {
+          camera.position = chase_pose;
+          camera.target = cPos;
+          chosenMetro.waveAmp = snake_amp_target;
+          chosenMetro.waveOmega = snake_omega_target;
+          snake_active = true;
+          snake_timer = 0.0f;
+          city_spawn_timer = city_spawn_interval;
+        }
+      }
+    }
+
+    // Snake end sequence (unchanged): drive, camera zoom-in, disintegration.
+    if (attached && snake_active) {
       float dt = GetFrameTime();
       snake_timer += dt;
 
